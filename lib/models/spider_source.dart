@@ -13,7 +13,6 @@ class SpiderSource {
     this.ext,
   });
 
-  // 从JSON解析
   factory SpiderSource.fromJson(Map<String, dynamic> json) {
     return SpiderSource(
       key: json['key'] as String,
@@ -24,7 +23,6 @@ class SpiderSource {
     );
   }
 
-  // 转JSON
   Map<String, dynamic> toJson() {
     return {
       'key': key,
