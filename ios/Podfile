@@ -2,5 +2,5 @@ platform :ios, '12.0'  # 最低支持iOS 12.0（TrollStore兼容要求）
 use_frameworks!
 target 'Runner' do
   use_frameworks!
-  pod 'Flutter', :path => Flutter::path  # Flutter核心依赖
+  pod 'Flutter', :path => ENV['FLUTTER_ROOT']  # 正确：通过环境变量获取Flutter路径
 end
