@@ -18,8 +18,10 @@ dependencies:
   # Python爬虫引擎（可选核心功能，稳定可用）
   python_ffi: ^0.6.0
   python_ffi_dart: ^0.4.4
-  # HTML解析（官方Dart团队维护，永久可用，兜底网页解析）
+  # 【稳定核心】HTML解析（Dart官方维护，永久可用）
   html: ^0.15.4
+  # 【稳定核心】语法解析（实现XPath能力，生态顶级稳定包）
+  petitparser: ^6.0.2
   # 本地存储（官方维护，稳定可用）
   sqflite: ^2.3.3+1
   shared_preferences: ^2.3.2
