@@ -20,7 +20,7 @@ dependencies:
   python_ffi_dart: ^0.4.4
   # XPath解析
   xpath_selector: ^2.0.0
-  xpath_selector_html_parser: ^2.0.0
+  xpath_selector_html_parser: ^1.0.0
   # 本地存储
   sqflite: ^2.3.0
   shared_preferences: ^2.2.2
