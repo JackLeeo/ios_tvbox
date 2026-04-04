@@ -1,48 +1,46 @@
-# 构建iOS TVBox的GitHub Actions工作流
-name: Build iOS TVBox
-
-# 触发条件：推送到main分支，或提交PR到main分支
+name: Build TVBox
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:  # 允许手动触发
 
 jobs:
-  build:
-    # iOS构建必须使用macOS运行器
-    runs-on: macos-latest
+  build-ios:
+    runs-on: macos-14  # 必须用 macOS 14+
     steps:
-      # 1. 检出项目代码
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. 安装Flutter环境，匹配项目的Dart 3.3.0要求
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.6' # 适配你的项目Dart SDK >=3.3.0的要求
+          flutter-version: '3.41.6'  # 和文档推荐版本严格一致
           channel: 'stable'
-          cache: true # 缓存Flutter依赖，加速后续构建
+          cache: true
 
-      # 3. 获取项目Dart依赖，生成Generated.xcconfig配置文件
-      - name: Get Flutter dependencies
-        run: flutter pub get
+      - name: Install Flutter dependencies
+        run: flutter pub get  # 关键：必须在 pod install 前执行
 
-      # 4. 预下载iOS编译所需的工具与 artifacts，避免CI环境缺失文件
-      - name: Precache iOS build artifacts
-        run: flutter precache --ios
-
-      # 5. 安装最新版本的CocoaPods
-      - name: Install CocoaPods
-        run: sudo gem install cocoapods
-
-      # 6. 安装iOS Pod依赖（已修复路径问题，可正常执行）
-      - name: Install iOS pods
+      - name: Install iOS Pods
         run: |
           cd ios
-          pod install --repo-update
+          pod install --repo-update  # 加上 --repo-update 避免源过时
 
-      # 7. 构建Release版本的iOS应用，适配TrollStore无需代码签名
-      - name: Build iOS release app
+      - name: Build unsigned iOS IPA
         run: flutter build ios --release --no-codesign
+
+      - name: Export IPA
+        run: |
+          cd ios
+          xcodebuild -exportArchive \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist ../exportOptions.plist
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tvbox_unsigned_ios_ipa
+          path: ios/build/ios/ipa/*.ipa
