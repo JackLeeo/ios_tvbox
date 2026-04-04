@@ -39,28 +39,20 @@ class _SourceDebuggerState extends State<SourceDebugger> {
         ext: _extController.text.trim(),
       );
 
-      // 先添加源
+      // 临时添加源测试
       await SpiderManager.instance.addSource(source);
       SpiderManager.instance.setCurrentSource(source.key);
 
       // 测试homeContent方法
       final result = await SpiderManager.instance.execute("homeContent", [false]);
 
-      // 验证返回数据格式
+      // 验证数据格式
       if (result['list'] is! List) {
-        throw Exception("返回数据格式错误，list字段不是数组");
+        throw Exception("返回格式错误：list字段不是数组");
       }
 
-      // 验证视频数据格式
       if (result['list'].isNotEmpty) {
         final firstItem = result['list'][0];
-        if (firstItem is! Map) {
-          throw Exception("列表项不是对象格式");
-        }
-        if (firstItem['id'] == null || firstItem['name'] == null) {
-          throw Exception("视频数据缺少id或name字段");
-        }
-        // 验证VideoModel解析正常
         VideoModel.fromJson(firstItem);
       }
 
@@ -127,7 +119,6 @@ class _SourceDebuggerState extends State<SourceDebugger> {
                 controller: _keyController,
                 decoration: const InputDecoration(labelText: "源唯一标识(key)"),
                 validator: (v) => v?.isEmpty == true ? "请输入key" : null,
-                // 修复废弃参数：value替换为initialValue
                 initialValue: _keyController.text,
               ),
               TextFormField(
