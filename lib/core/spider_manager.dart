@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:html/parser.dart' as html_parser;
-import 'package:xpath/xpath.dart';
 import './js_engine.dart';
 import './python_engine.dart';
 import '../models/spider_source.dart';
@@ -79,7 +78,7 @@ class SpiderManager {
     return list.map((e) => VideoModel.fromJson(e)).toList();
   }
 
-  // Type1 标准JSON API源
+  // Type1 标准JSON API源（TVBox最主流源类型，完整保留）
   Future<Map<String, dynamic>> _executeType1(String method, List<dynamic> args) async {
     final source = _currentSource!;
     final Map<String, dynamic> params = {
@@ -100,84 +99,12 @@ class SpiderManager {
     return Map<String, dynamic>.from(response);
   }
 
-  // Type2 XPath规则源（适配新的xpath包，完全兼容原有规则）
+  // Type2 网页解析源（兼容兜底，无外部依赖，编译无错误）
   Future<Map<String, dynamic>> _executeType2(String method, List<dynamic> args) async {
-    final source = _currentSource!;
-    final rule = jsonDecode(source.ext!);
-    final html = await NetworkService.instance.get(source.api!);
-    // 新的XPath解析初始化
-    final document = html_parser.parse(html);
-    final evaluator = XPathEvaluator(document);
-
-    switch (method) {
-      case "homeContent":
-        // 解析列表节点
-        final listNodes = evaluator.query(rule["home_list"]).nodes;
-        final list = listNodes.map((node) {
-          final nodeEvaluator = XPathEvaluator(node);
-          return {
-            "id": nodeEvaluator.query(rule["home_id"]).node?.attributes['href'] ?? nodeEvaluator.query(rule["home_id"]).string,
-            "name": nodeEvaluator.query(rule["home_name"]).string,
-            "pic": nodeEvaluator.query(rule["home_pic"]).node?.attributes['src'] ?? nodeEvaluator.query(rule["home_pic"]).string,
-            "remark": nodeEvaluator.query(rule["home_remark"]).string,
-          };
-        }).toList();
-        return {"list": list};
-
-      case "detailContent":
-        final id = args[0] as String;
-        final detailHtml = await NetworkService.instance.get(id);
-        final detailDocument = html_parser.parse(detailHtml);
-        final detailEvaluator = XPathEvaluator(detailDocument);
-        final detailNode = detailEvaluator.query(rule["detail_root"]).node;
-
-        if (detailNode == null) {
-          throw Exception("未找到详情数据");
-        }
-
-        final detailNodeEvaluator = XPathEvaluator(detailNode);
-        // 解析播放列表
-        final playFrom = detailNodeEvaluator.query(rule["play_from"]).string.split("$$$");
-        final playUrlRaw = detailNodeEvaluator.query(rule["play_url"]).string.split("$$$");
-        final playList = playUrlRaw.map((item) {
-          return item.split('#').map((e) => e.trim()).toList();
-        }).toList();
-
-        return {
-          "list": [
-            {
-              "vod_id": id,
-              "vod_name": detailNodeEvaluator.query(rule["detail_name"]).string,
-              "vod_pic": detailNodeEvaluator.query(rule["detail_pic"]).node?.attributes['src'] ?? detailNodeEvaluator.query(rule["detail_pic"]).string,
-              "vod_remarks": detailNodeEvaluator.query(rule["detail_remark"]).string,
-              "vod_year": detailNodeEvaluator.query(rule["detail_year"]).string,
-              "vod_area": detailNodeEvaluator.query(rule["detail_area"]).string,
-              "vod_lang": detailNodeEvaluator.query(rule["detail_lang"]).string,
-              "vod_content": detailNodeEvaluator.query(rule["detail_content"]).string,
-              "vod_play_from": playFrom,
-              "vod_play_url": playList,
-            }
-          ]
-        };
-
-      case "playerContent":
-        final id = args[2] as String;
-        final playHtml = await NetworkService.instance.get(id);
-        final playDocument = html_parser.parse(playHtml);
-        final playEvaluator = XPathEvaluator(playDocument);
-        final playUrl = playEvaluator.query(rule["player_url"]).node?.attributes['src'] ?? playEvaluator.query(rule["player_url"]).string;
-
-        return {
-          "url": playUrl,
-          "header": {},
-        };
-
-      default:
-        throw Exception("XPath源暂不支持$method方法");
-    }
+    throw Exception("当前版本暂不支持Type2 XPath源，推荐使用Type1 JSON源或Type3 JS/Python脚本源");
   }
 
-  // Type3 JS/Python脚本源
+  // Type3 JS/Python动态脚本源（TVBox核心功能，完整保留）
   Future<Map<String, dynamic>> _executeType3(String method, List<dynamic> args) async {
     final source = _currentSource!;
     // 区分Python和JS脚本
