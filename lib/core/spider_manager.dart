@@ -7,7 +7,7 @@ import '../models/spider_source.dart';
 import '../models/video_model.dart';
 import './network_service.dart';
 
-// ====================== 内置稳定XPath解析器（无第三方依赖，永久可用）======================
+// ====================== 内置稳定XPath解析器（适配petitparser 6.1.0 官方API）======================
 class XPathResult {
   final List<Node> nodes;
   final String string;
@@ -24,9 +24,8 @@ class XPathEvaluator {
   XPathEvaluator(this._rootNode);
 
   XPathResult query(String xpath) {
-    final parser = XPathGrammarDefinition().build();
+    final parser = const XPathGrammarDefinition().build<dynamic>();
     final result = parser.parse(xpath);
-    // 修复废弃API：isFailure 改为 is Failure
     if (result is Failure) {
       return XPathResult([], '');
     }
@@ -70,7 +69,6 @@ class XPathEvaluator {
     final List<Node> result = [];
     if (axis == '//') {
       for (final node in contextNodes) {
-        // 修复：Node没有querySelectorAll，转成Element才可以
         if (node is Element) {
           result.addAll(node.querySelectorAll('*'));
         } else if (node is Document) {
@@ -109,13 +107,15 @@ class XPathEvaluator {
   }
 
   List<Node> _applyPredicate(List<Node> nodes, String predicate) {
-    // 修复正则语法错误，使用原始字符串，正确转义
-    final match = RegExp(r'@(\w+)\s*=\s*["\'](sslocal://flow/file_open?url=.%2A%3F&flow_extra=eyJsaW5rX3R5cGUiOiJjb2RlX2ludGVycHJldGVyIn0=)["\']').firstMatch(predicate);
+    // 修复正则语法错误，使用Dart标准正则写法
+    final regex = RegExp(r'@(\w+)\s*=\s*["\'](sslocal://flow/file_open?url=.%2A%3F&flow_extra=eyJsaW5rX3R5cGUiOiJjb2RlX2ludGVycHJldGVyIn0=)["\']');
+    final RegExpMatch? match = regex.firstMatch(predicate);
     if (match == null) return nodes;
 
-    // 修复：RegExp的group方法是可空的，加!处理
-    final attrName = match.group(1)!;
-    final attrValue = match.group(2)!;
+    // 修复RegExpMatch group方法空安全
+    final attrName = match.group(1) ?? '';
+    final attrValue = match.group(2) ?? '';
+    if (attrName.isEmpty) return nodes;
 
     return nodes.where((node) {
       if (node is! Element) return false;
@@ -124,7 +124,7 @@ class XPathEvaluator {
   }
 }
 
-// 修复废弃API：不再继承GrammarParser，直接用GrammarDefinition.build()
+// 修复petitparser 6.1.0 语法定义，适配官方API
 class XPathGrammarDefinition extends GrammarDefinition {
   const XPathGrammarDefinition();
 
@@ -149,8 +149,8 @@ class XPathGrammarDefinition extends GrammarDefinition {
         return {'axis': '.', 'predicate': list[1]};
       });
 
-  // 修复：anyChar来自petitparser，直接使用
-  Parser predicate() => (anyChar() & char(']').not()).plus().flatten();
+  // 修复anyChar方法，在GrammarDefinition中必须用ref0引用
+  Parser predicate() => (ref0(anyChar) & char(']').not()).plus().flatten();
 }
 // ====================== XPath解析器结束 ======================
 
@@ -252,23 +252,33 @@ class SpiderManager {
     final source = _currentSource!;
     final rule = jsonDecode(source.ext!);
     final html = await NetworkService.instance.get(source.api!);
-    // 初始化内置XPath解析器
+    // 初始化内置XPath解析器，修复标识符错误
     final document = html_parser.parse(html);
     final evaluator = XPathEvaluator(document);
 
     switch (method) {
       case "homeContent":
-        // 解析首页列表
-        final listResult = evaluator.query(rule["home_list"]);
+        // 解析首页列表，修复空安全错误
+        final listRule = rule["home_list"] as String? ?? '';
+        final listResult = evaluator.query(listRule);
         final listNodes = listResult.nodes;
         final list = listNodes.map((node) {
           final nodeEvaluator = XPathEvaluator(node);
-          // 修复空安全：String? 赋值给String，加??兜底
+          final idRule = rule["home_id"] as String? ?? '';
+          final nameRule = rule["home_name"] as String? ?? '';
+          final picRule = rule["home_pic"] as String? ?? '';
+          final remarkRule = rule["home_remark"] as String? ?? '';
+
+          final idResult = nodeEvaluator.query(idRule);
+          final nameResult = nodeEvaluator.query(nameRule);
+          final picResult = nodeEvaluator.query(picRule);
+          final remarkResult = nodeEvaluator.query(remarkRule);
+
           return {
-            "id": nodeEvaluator.query(rule["home_id"]).attr ?? nodeEvaluator.query(rule["home_id"]).string,
-            "name": nodeEvaluator.query(rule["home_name"]).string,
-            "pic": nodeEvaluator.query(rule["home_pic"]).attr ?? nodeEvaluator.query(rule["home_pic"]).string,
-            "remark": nodeEvaluator.query(rule["home_remark"]).string,
+            "id": idResult.attr ?? idResult.string,
+            "name": nameResult.string,
+            "pic": picResult.attr ?? picResult.string,
+            "remark": remarkResult.string,
           };
         }).toList();
         return {"list": list};
@@ -278,7 +288,8 @@ class SpiderManager {
         final detailHtml = await NetworkService.instance.get(id);
         final detailDocument = html_parser.parse(detailHtml);
         final detailEvaluator = XPathEvaluator(detailDocument);
-        final detailResult = detailEvaluator.query(rule["detail_root"]);
+        final detailRule = rule["detail_root"] as String? ?? '';
+        final detailResult = detailEvaluator.query(detailRule);
         final detailNode = detailResult.node;
 
         if (detailNode == null) {
@@ -286,24 +297,42 @@ class SpiderManager {
         }
 
         final detailNodeEvaluator = XPathEvaluator(detailNode);
-        // 解析播放列表，修复标识符错误
-        final playFrom = detailNodeEvaluator.query(rule["play_from"]).string.split("$$$");
-        final playUrlRaw = detailNodeEvaluator.query(rule["play_url"]).string.split("$$$");
+        // 解析播放列表
+        final playFromRule = rule["play_from"] as String? ?? '';
+        final playUrlRule = rule["play_url"] as String? ?? '';
+        final playFrom = detailNodeEvaluator.query(playFromRule).string.split("$$$");
+        final playUrlRaw = detailNodeEvaluator.query(playUrlRule).string.split("$$$");
         final playList = playUrlRaw.map((item) {
           return item.split('#').map((e) => e.trim()).toList();
         }).toList();
+
+        final nameRule = rule["detail_name"] as String? ?? '';
+        final picRule = rule["detail_pic"] as String? ?? '';
+        final remarkRule = rule["detail_remark"] as String? ?? '';
+        final yearRule = rule["detail_year"] as String? ?? '';
+        final areaRule = rule["detail_area"] as String? ?? '';
+        final langRule = rule["detail_lang"] as String? ?? '';
+        final contentRule = rule["detail_content"] as String? ?? '';
+
+        final nameResult = detailNodeEvaluator.query(nameRule);
+        final picResult = detailNodeEvaluator.query(picRule);
+        final remarkResult = detailNodeEvaluator.query(remarkRule);
+        final yearResult = detailNodeEvaluator.query(yearRule);
+        final areaResult = detailNodeEvaluator.query(areaRule);
+        final langResult = detailNodeEvaluator.query(langRule);
+        final contentResult = detailNodeEvaluator.query(contentRule);
 
         return {
           "list": [
             {
               "vod_id": id,
-              "vod_name": detailNodeEvaluator.query(rule["detail_name"]).string,
-              "vod_pic": detailNodeEvaluator.query(rule["detail_pic"]).attr ?? detailNodeEvaluator.query(rule["detail_pic"]).string,
-              "vod_remarks": detailNodeEvaluator.query(rule["detail_remark"]).string,
-              "vod_year": detailNodeEvaluator.query(rule["detail_year"]).string,
-              "vod_area": detailNodeEvaluator.query(rule["detail_area"]).string,
-              "vod_lang": detailNodeEvaluator.query(rule["detail_lang"]).string,
-              "vod_content": detailNodeEvaluator.query(rule["detail_content"]).string,
+              "vod_name": nameResult.string,
+              "vod_pic": picResult.attr ?? picResult.string,
+              "vod_remarks": remarkResult.string,
+              "vod_year": yearResult.string,
+              "vod_area": areaResult.string,
+              "vod_lang": langResult.string,
+              "vod_content": contentResult.string,
               "vod_play_from": playFrom,
               "vod_play_url": playList,
             }
@@ -315,7 +344,9 @@ class SpiderManager {
         final playHtml = await NetworkService.instance.get(id);
         final playDocument = html_parser.parse(playHtml);
         final playEvaluator = XPathEvaluator(playDocument);
-        final playUrl = playEvaluator.query(rule["player_url"]).attr ?? playEvaluator.query(rule["player_url"]).string;
+        final playerRule = rule["player_url"] as String? ?? '';
+        final playResult = playEvaluator.query(playerRule);
+        final playUrl = playResult.attr ?? playResult.string;
 
         return {
           "url": playUrl,
