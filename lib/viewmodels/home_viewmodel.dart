@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:ios_tvbox/core/spider_manager.dart';
-import 'package:ios_tvbox/models/video_model.dart';
+import '../core/spider_manager.dart';
+import '../models/video_model.dart';
 
 class HomeViewModel extends ChangeNotifier {
   List<VideoModel> videoList = [];
