@@ -1,86 +1,76 @@
-name: 打包无签名 iOS IPA（TrollStore 兼容）  # 明确用途
+name: 打包无签名iOS IPA（TrollStore兼容）  
 on:
-  workflow_dispatch:  # 仅允许手动触发（如需自动触发可添加 push/pull_request）
+  workflow_dispatch:  # 手动触发
   push:
-    branches: [ main ]  # 可选：推送到 main 分支时自动构建
+    branches: [main]  # 推送到main分支自动触发
 
 jobs:
   build_unsigned_ipa:
-    runs-on: macos-14  # 需 macOS 14+ 以支持最新 Xcode
+    runs-on: macos-14  # 需macOS 14+支持最新Xcode
     timeout-minutes: 40  # 防止构建超时
 
     steps:
-      # 1. 拉取项目代码（含 iOS 配置）
+      # 1. 拉取项目代码（浅克隆加速）
       - name: 拉取代码
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1  # 浅克隆加速拉取
+          fetch-depth: 1  
 
-      # 2. 安装 Flutter 环境（指定版本与缓存）
-      - name: 安装 Flutter
+      # 2. 安装Flutter 3.41.6（与本地一致，满足依赖要求）
+      - name: 安装Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.41.6  # 与你提供的参考代码一致
+          flutter-version: 3.41.6  # 升级到项目要求的版本（解决flutter_lints依赖失败）
           channel: stable
           cache: true
-          cache-key: flutter-3.41.6-ios  # 缓存键（避免与其他项目冲突）
+          cache-key: flutter-3.41.6-ios  # 更新缓存键（避免旧版本干扰）
           cache-path: ${{ runner.tool_cache }}/flutter
 
-      # 3. 配置 Flutter 环境（禁用分析、显示版本、清理缓存）
-      - name: 配置 Flutter
+      # 3. 配置Flutter环境（禁用干扰项+清理缓存）
+      - name: 配置Flutter
         run: |
-          flutter config --no-analytics --no-cli-animations  # 减少干扰
-          flutter --version  # 验证版本
+          flutter config --no-analytics --no-cli-animations  
+          flutter --version  # 验证版本（应输出Flutter 3.41.6）
           flutter clean  # 清理旧构建产物
 
-      # 4. 安装 Dart/Flutter 依赖
+      # 4. 安装Dart/Flutter依赖（此时版本兼容，无报错）
       - name: 安装项目依赖
-        run: flutter pub get
+        run: flutter pub get  
 
-      # 5. 恢复 CocoaPods 缓存（官方标准写法，避免重复安装）
-      - name: 恢复 Pods 缓存
+      # 5. 恢复CocoaPods缓存（基于Podfile.lock哈希）
+      - name: 恢复Pods缓存
         uses: actions/cache@v4
         with:
-          path: ios/Pods  # 缓存 Pods 目录
-          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}  # 基于 Podfile.lock 哈希生成唯一键
-          restore-keys: |  # 缓存恢复优先级
+          path: ios/Pods  
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}  
+          restore-keys: |  
             ${{ runner.os }}-pods-
 
-      # 6. 安装 iOS 依赖（CocoaPods）
-      - name: 安装 Pods
+      # 6. 安装iOS依赖（CocoaPods，依赖修正后的Podfile）
+      - name: 安装Pods
         run: |
           cd ios
-          pod install --repo-update --silent  # 静默安装，更新仓库索引
-          # 移除参考代码中的 `pod deintegrate` 和 `pod cache clean`（会破坏缓存）
+          pod install --repo-update --silent  # 静默安装（适配修正后的Podfile）
 
-      # 7. 编译无签名 iOS Release 包（核心：--no-codesign 禁用签名）
-      - name: 编译 iOS Release（无签名）
-        run: flutter build ios --release --no-codesign --verbose  # --verbose 输出详细日志便于调试
+      # 7. 编译无签名iOS Release包（--no-codesign兼容TrollStore）
+      - name: 编译iOS Release（无签名）
+        run: flutter build ios --release --no-codesign --verbose  
 
-      # 8. 生成 IPA 安装包（手动打包，符合 TrollStore 要求）
-      - name: 生成 IPA
+      # 8. 生成IPA（手动打包为TrollStore兼容格式）
+      - name: 生成IPA
         run: |
-          # 进入构建产物目录（Flutter 无签名构建的默认输出路径）
           cd build/ios/iphoneos
-          
-          # 创建 Payload 目录（IPA 标准结构）
           mkdir -p Payload
-          
-          # 复制未签名的 Runner.app 到 Payload
           cp -R Runner.app Payload/
-          
-          # 压缩为 IPA（使用 zip 命令，-9 最高压缩率，-q 静默模式）
           zip -q -r -9 tvbox_unsigned.ipa Payload
-          
-          # 输出 IPA 信息（验证生成成功）
-          echo "✅ 无签名 IPA 生成成功"
+          echo "✅ 无签名IPA生成成功"
           echo "📦 文件路径: $(pwd)/tvbox_unsigned.ipa"
           echo "📏 文件大小: $(du -h tvbox_unsigned.ipa | awk '{print $1}')"
 
-      # 9. 上传 IPA 到 GitHub Artifacts（保留 30 天）
-      - name: 上传 IPA
+      # 9. 上传IPA到GitHub Artifacts（保留30天）
+      - name: 上传IPA
         uses: actions/upload-artifact@v4
         with:
-          name: tvbox_unsigned_ios_ipa  #  artifact 名称
-          path: build/ios/iphoneos/tvbox_unsigned.ipa  #  IPA 路径（与步骤 8 一致）
-          retention-days: 30  # 保留期限
+          name: tvbox_unsigned_ios_ipa  
+          path: build/ios/iphoneos/tvbox_unsigned.ipa  
+          retention-days: 30
