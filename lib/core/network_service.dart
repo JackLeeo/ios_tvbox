@@ -2,49 +2,52 @@ import 'package:dio/dio.dart';
 
 class NetworkService {
   late final Dio _dio;
+  bool _isInitialized = false;
 
-  NetworkService() {
+  static final NetworkService instance = NetworkService._internal();
+  NetworkService._internal();
+
+  Future<void> init() async {
+    if (_isInitialized) return;
     _dio = Dio(
       BaseOptions(
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 10),
-        sendTimeout: const Duration(seconds: 10),
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        },
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 30),
+        sendTimeout: const Duration(seconds: 15),
+        followRedirects: true,
+        validateStatus: (status) => status! < 500,
       ),
     );
-    
-    // 拦截器
-    _dio.interceptors.add(LogInterceptor(
-      requestBody: true,
-      responseBody: true,
-    ));
+    _isInitialized = true;
   }
 
   // GET请求
-  Future<Response> get(
-    String url, {
-    Map<String, dynamic>? queryParameters,
-    Map<String, String>? headers,
-  }) async {
-    return await _dio.get(
-      url,
-      queryParameters: queryParameters,
-      options: Options(headers: headers),
-    );
+  Future<dynamic> get(String url, {Map<String, dynamic>? headers, Map<String, dynamic>? queryParameters}) async {
+    if (!_isInitialized) await init();
+    try {
+      final response = await _dio.get(
+        url,
+        options: headers != null ? Options(headers: headers) : null,
+        queryParameters: queryParameters,
+      );
+      return response.data;
+    } catch (e) {
+      throw Exception("网络请求失败: $e");
+    }
   }
 
   // POST请求
-  Future<Response> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    return await _dio.post(
-      url,
-      data: data,
-      options: Options(headers: headers),
-    );
+  Future<dynamic> post(String url, {dynamic data, Map<String, dynamic>? headers}) async {
+    if (!_isInitialized) await init();
+    try {
+      final response = await _dio.post(
+        url,
+        data: data,
+        options: headers != null ? Options(headers: headers) : null,
+      );
+      return response.data;
+    } catch (e) {
+      throw Exception("网络请求失败: $e");
+    }
   }
 }
