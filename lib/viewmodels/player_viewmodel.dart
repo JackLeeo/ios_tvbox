@@ -1,52 +1,59 @@
 import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
-import '../core/spider_manager.dart';
+import 'package:ios_tvbox/core/spider_manager.dart';
 
 class PlayerViewModel extends ChangeNotifier {
-  final SpiderManager _spiderManager;
-  final String sourceKey;
-  final Player player = Player();
-
+  late final Player player;
   bool _isLoading = false;
-  String? _error;
-  String? _playUrl;
-  Map<String, String>? _headers;
-
-  PlayerViewModel(this._spiderManager, this.sourceKey);
+  String? _errorMessage;
 
   bool get isLoading => _isLoading;
-  String? get error => _error;
-  String? get playUrl => _playUrl;
-  Map<String, String>? get headers => _headers;
+  String? get errorMessage => _errorMessage;
 
-  // 加载播放地址
-  Future<void> loadPlayUrl(String flag, String id, List flags) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+  PlayerViewModel() {
+    player = Player();
+  }
 
+  // 初始化播放（修复setHttpHeaders错误，使用media_kit标准API设置请求头）
+  Future<void> initPlay(String flag, String id) async {
+    _setLoading(true);
+    _errorMessage = null;
     try {
-      final result = await _spiderManager.getPlayerContent(sourceKey, flag, id, flags);
-      _playUrl = result['url'];
-      _headers = Map<String, String>.from(result['header'] ?? {});
-      
-      // 开始播放
-      if (_playUrl != null) {
-        // 修复：兼容 media_kit 1.2.6 旧版本，移除不存在的 headers 命名参数
-        // 先设置播放器全局请求头，完整保留防盗链/鉴权头功能
-        if (_headers != null && _headers!.isNotEmpty) {
-          player.setHttpHeaders(_headers!);
-        }
-        await player.open(Media(_playUrl!));
+      // 解析播放地址
+      final result = await SpiderManager.instance.execute(
+        "playerContent",
+        [flag, id, []],
+      );
+
+      final String url = result['url'] ?? '';
+      final Map<String, String> headers = Map<String, String>.from(result['header'] ?? {});
+
+      if (url.isEmpty) {
+        throw Exception("播放地址为空");
       }
+
+      // 正确设置播放地址和HTTP头（media_kit标准实现）
+      await player.open(
+        Media.playable(
+          url,
+          httpHeaders: headers,
+        ),
+        play: true,
+      );
     } catch (e) {
-      _error = e.toString();
+      _errorMessage = e.toString();
+      debugPrint("播放初始化错误: $e");
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      _setLoading(false);
     }
   }
 
+  void _setLoading(bool value) {
+    _isLoading = value;
+    notifyListeners();
+  }
+
+  // 释放播放器资源
   @override
   void dispose() {
     player.dispose();
