@@ -1,39 +1,38 @@
 import 'package:flutter/foundation.dart';
-import '../core/spider_manager.dart';
-import '../models/video_model.dart';
+import 'package:ios_tvbox/core/spider_manager.dart';
+import 'package:ios_tvbox/models/video_model.dart';
 
 class DetailViewModel extends ChangeNotifier {
-  final SpiderManager _spiderManager;
-  final String sourceKey;
-  final String videoId;
-
-  bool _isLoading = false;
-  String? _error;
-  VideoModel? _video;
-
-  DetailViewModel(this._spiderManager, this.sourceKey, this.videoId);
-
-  bool get isLoading => _isLoading;
-  String? get error => _error;
-  VideoModel? get video => _video;
+  VideoModel? videoDetail;
+  bool isLoading = false;
+  String? errorMessage;
+  int currentFromIndex = 0;
 
   // 加载详情数据
-  Future<void> loadDetail() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+  Future<void> loadDetail(String id) async {
+    _setLoading(true);
+    errorMessage = null;
 
     try {
-      final result = await _spiderManager.getDetailContent(sourceKey, videoId);
-      final list = result['list'];
-      if (list is List && list.isNotEmpty) {
-        _video = VideoModel.fromJson(Map<String, dynamic>.from(list.first));
-      }
+      videoDetail = await SpiderManager.instance.getDetailContent(id);
+      currentFromIndex = 0;
     } catch (e) {
-      _error = e.toString();
+      errorMessage = e.toString();
+      debugPrint("详情数据加载失败: $e");
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      _setLoading(false);
     }
+  }
+
+  // 切换播放线路
+  void changePlayFrom(int index) {
+    if (index < 0 || index >= (videoDetail?.playFrom?.length ?? 0)) return;
+    currentFromIndex = index;
+    notifyListeners();
+  }
+
+  void _setLoading(bool value) {
+    isLoading = value;
+    notifyListeners();
   }
 }
