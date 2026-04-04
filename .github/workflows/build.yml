@@ -1,43 +1,43 @@
 name: 打包无签名iOS IPA（TrollStore兼容）  
 on:
-  workflow_dispatch:  # 手动触发
+  workflow_dispatch:  
   push:
-    branches: [main]  # 推送到main分支自动触发
+    branches: [main]  
 
 jobs:
   build_unsigned_ipa:
-    runs-on: macos-14  # 需macOS 14+支持最新Xcode
-    timeout-minutes: 40  # 防止构建超时
+    runs-on: macos-14  
+    timeout-minutes: 40  
 
     steps:
-      # 1. 拉取项目代码（浅克隆加速）
+      # 1. 拉取代码
       - name: 拉取代码
         uses: actions/checkout@v4
         with:
           fetch-depth: 1  
 
-      # 2. 安装Flutter 3.41.6（与本地一致，满足依赖要求）
+      # 2. 安装Flutter 3.41.6
       - name: 安装Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.41.6  # 升级到项目要求的版本（解决flutter_lints依赖失败）
+          flutter-version: 3.41.6  
           channel: stable
           cache: true
-          cache-key: flutter-3.41.6-ios  # 更新缓存键（避免旧版本干扰）
+          cache-key: flutter-3.41.6-ios  
           cache-path: ${{ runner.tool_cache }}/flutter
 
-      # 3. 配置Flutter环境（禁用干扰项+清理缓存）
+      # 3. 配置Flutter
       - name: 配置Flutter
         run: |
           flutter config --no-analytics --no-cli-animations  
-          flutter --version  # 验证版本（应输出Flutter 3.41.6）
-          flutter clean  # 清理旧构建产物
+          flutter --version  
+          flutter clean  
 
-      # 4. 安装Dart/Flutter依赖（此时版本兼容，无报错）
+      # 4. 安装项目依赖（生成Generated.xcconfig）
       - name: 安装项目依赖
         run: flutter pub get  
 
-      # 5. 恢复CocoaPods缓存（基于Podfile.lock哈希）
+      # 5. 恢复Pods缓存
       - name: 恢复Pods缓存
         uses: actions/cache@v4
         with:
@@ -46,17 +46,17 @@ jobs:
           restore-keys: |  
             ${{ runner.os }}-pods-
 
-      # 6. 安装iOS依赖（CocoaPods，依赖修正后的Podfile）
+      # 6. 安装Pods（用修正后的Podfile）
       - name: 安装Pods
         run: |
           cd ios
-          pod install --repo-update --silent  # 静默安装（适配修正后的Podfile）
+          pod install --repo-update --silent  
 
-      # 7. 编译无签名iOS Release包（--no-codesign兼容TrollStore）
+      # 7. 编译无签名iOS包
       - name: 编译iOS Release（无签名）
         run: flutter build ios --release --no-codesign --verbose  
 
-      # 8. 生成IPA（手动打包为TrollStore兼容格式）
+      # 8. 生成IPA
       - name: 生成IPA
         run: |
           cd build/ios/iphoneos
@@ -67,7 +67,7 @@ jobs:
           echo "📦 文件路径: $(pwd)/tvbox_unsigned.ipa"
           echo "📏 文件大小: $(du -h tvbox_unsigned.ipa | awk '{print $1}')"
 
-      # 9. 上传IPA到GitHub Artifacts（保留30天）
+      # 9. 上传IPA
       - name: 上传IPA
         uses: actions/upload-artifact@v4
         with:
