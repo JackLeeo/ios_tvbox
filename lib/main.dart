@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:ios_tvbox/views/home_view.dart';
 import 'package:ios_tvbox/viewmodels/home_viewmodel.dart';
 import 'package:ios_tvbox/core/spider_manager.dart';
 import 'package:ios_tvbox/core/js_engine.dart';
 import 'package:ios_tvbox/core/python_engine.dart';
+import 'package:ios_tvbox/core/network_service.dart';
 import 'package:ios_tvbox/views/source_debugger.dart';
 import 'package:ios_tvbox/views/detail_view.dart';
 import 'package:ios_tvbox/views/player_view.dart';
@@ -13,14 +15,18 @@ import 'package:ios_tvbox/models/spider_source.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 初始化引擎
+  // 初始化播放器核心
+  MediaKit.ensureInitialized();
+
+  // 初始化核心服务
+  await NetworkService.instance.init();
   await JsEngine.instance.init();
   await PythonEngine.instance.init();
 
-  // 内置默认测试源，保障首次启动可正常运行
+  // 内置默认测试源
   await SpiderManager.instance.addSource(SpiderSource(
-    key: "test_source",
-    name: "测试源",
+    key: "default_test",
+    name: "内置测试源",
     type: 3,
     api: "",
     ext: """
@@ -29,16 +35,24 @@ class MySpider extends CatVodSpider {
     return {
       list: [
         {
-          id: '1',
-          name: '测试视频1',
-          pic: 'https://via.placeholder.com/300x400',
-          remark: '测试'
+          id: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+          name: '测试视频-大兔子邦尼',
+          pic: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/800px-Big_buck_bunny_poster_big.jpg',
+          remark: '测试视频',
+          year: '2008',
+          area: '美国',
+          lang: '英语',
+          des: '这是一个开源测试视频，用于验证播放器功能'
         },
         {
-          id: '2',
-          name: '测试视频2',
-          pic: 'https://via.placeholder.com/300x400',
-          remark: '测试'
+          id: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+          name: '大象之梦',
+          pic: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/ElephantsDream.jpg/800px-ElephantsDream.jpg',
+          remark: '测试视频',
+          year: '2006',
+          area: '荷兰',
+          lang: '英语',
+          des: '世界上第一部开源电影'
         }
       ]
     };
@@ -47,11 +61,22 @@ class MySpider extends CatVodSpider {
     return {
       list: [
         {
-          vod_name: '测试视频',
-          vod_pic: 'https://via.placeholder.com/300x400',
-          vod_content: '这是一个测试视频',
-          vod_play_from: ['测试线路'],
-          vod_play_url: ['测试$https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4']
+          vod_id: ids,
+          vod_name: ids.includes('BigBuckBunny') ? '大兔子邦尼' : '大象之梦',
+          vod_pic: ids.includes('BigBuckBunny') 
+            ? 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/800px-Big_buck_bunny_poster_big.jpg'
+            : 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/ElephantsDream.jpg/800px-ElephantsDream.jpg',
+          vod_remarks: '测试视频',
+          vod_year: ids.includes('BigBuckBunny') ? '2008' : '2006',
+          vod_area: ids.includes('BigBuckBunny') ? '美国' : '荷兰',
+          vod_lang: '英语',
+          vod_content: ids.includes('BigBuckBunny') 
+            ? '这是一个开源测试视频，用于验证播放器功能' 
+            : '世界上第一部开源电影',
+          vod_play_from: ['默认线路'],
+          vod_play_url: [
+            ['正片\$' + ids]
+          ]
         }
       ]
     };
@@ -83,12 +108,14 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           primarySwatch: Colors.blue,
           brightness: Brightness.dark,
+          useMaterial3: true,
         ),
+        debugShowCheckedModeBanner: false,
         home: const HomeView(),
         routes: {
           '/debug': (context) => const SourceDebugger(),
-          '/detail': (context) => const DetailView(),
-          '/player': (context) => const PlayerView(),
+          '/detail': (context) => const DetailView(videoId: ''),
+          '/player': (context) => const PlayerView(flag: '', id: '', title: ''),
         },
       ),
     );
