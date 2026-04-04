@@ -1,57 +1,88 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import '../viewmodels/detail_viewmodel.dart';
-import '../core/spider_manager.dart';
-import '../models/video_model.dart';
-import 'player_view.dart';
+import 'package:ios_tvbox/viewmodels/detail_viewmodel.dart';
+import 'package:ios_tvbox/views/player_view.dart';
 
-class DetailView extends StatelessWidget {
-  final VideoModel video;
-  const DetailView({super.key, required this.video});
+class DetailView extends StatefulWidget {
+  final String videoId;
+
+  const DetailView({super.key, required this.videoId});
+
+  @override
+  State<DetailView> createState() => _DetailViewState();
+}
+
+class _DetailViewState extends State<DetailView> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<DetailViewModel>(context, listen: false).loadDetail(widget.videoId);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final spiderManager = Provider.of<SpiderManager>(context, listen: false);
-    
     return ChangeNotifierProvider(
-      create: (_) => DetailViewModel(spiderManager, 'default', video.id)
-        ..loadDetail(),
+      create: (_) => DetailViewModel(),
       child: Scaffold(
-        appBar: AppBar(title: Text(video.name)),
+        appBar: AppBar(title: const Text("视频详情")),
         body: Consumer<DetailViewModel>(
-          builder: (context, vm, _) {
+          builder: (context, vm, child) {
             if (vm.isLoading) {
               return const Center(child: CircularProgressIndicator());
             }
-            if (vm.error != null) {
+
+            if (vm.errorMessage != null) {
               return Center(
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(vm.error!),
-                    TextButton(onPressed: vm.loadDetail, child: const Text('重试')),
+                    Text(vm.errorMessage!, textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => vm.loadDetail(widget.videoId),
+                      child: const Text("重试"),
+                    ),
                   ],
                 ),
               );
             }
 
-            final detail = vm.video ?? video;
+            if (vm.videoDetail == null) {
+              return const Center(child: Text("暂无数据"));
+            }
+
+            final video = vm.videoDetail!;
+            final playFrom = video.playFrom ?? [];
+            final playList = video.playUrl ?? [];
+            final currentPlayList = playFrom.isNotEmpty && playList.length > vm.currentFromIndex
+                ? playList[vm.currentFromIndex]
+                : [];
+
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 封面与基本信息
+                  // 封面与基础信息
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: CachedNetworkImage(
-                          imageUrl: detail.pic,
+                        child: Image.network(
+                          video.pic,
                           width: 120,
-                          height: 160,
+                          height: 180,
                           fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const SizedBox(
+                              width: 120,
+                              height: 180,
+                              child: Icon(Icons.broken_image, size: 40),
+                            );
+                          },
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -59,40 +90,95 @@ class DetailView extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(detail.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            Text(
+                              video.name,
+                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                            ),
                             const SizedBox(height: 8),
-                            if (detail.year != null) Text('年份: ${detail.year}'),
-                            if (detail.type != null) Text('类型: ${detail.type}'),
-                            if (detail.area != null) Text('地区: ${detail.area}'),
-                            if (detail.lang != null) Text('语言: ${detail.lang}'),
+                            Text("年份：${video.year ?? '未知'}"),
+                            Text("地区：${video.area ?? '未知'}"),
+                            Text("语言：${video.lang ?? '未知'}"),
+                            Text("状态：${video.remark ?? '未知'}"),
                           ],
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  // 简介
-                  if (detail.des != null) ...[
-                    const Text('简介', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Text(detail.des!),
-                    const SizedBox(height: 16),
-                  ],
-                  // 播放列表
-                  if (detail.playFrom != null && detail.playList != null) ...[
-                    const Text('播放源', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    for (int i = 0; i < detail.playFrom!.length; i++) ...[
-                      Text(detail.playFrom![i], style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _buildPlayItems(context, detail.playList![i]),
+
+                  // 视频简介
+                  const Text(
+                    "剧情简介",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    video.des ?? video.content ?? "暂无简介",
+                    style: const TextStyle(height: 1.5),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // 播放线路
+                  if (playFrom.isNotEmpty)
+                    const Text(
+                      "播放线路",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  if (playFrom.isNotEmpty) const SizedBox(height: 8),
+                  if (playFrom.isNotEmpty)
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: List.generate(playFrom.length, (index) {
+                          final isSelected = index == vm.currentFromIndex;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isSelected ? Colors.blue : Colors.grey[800],
+                              ),
+                              onPressed: () => vm.changePlayFrom(index),
+                              child: Text(playFrom[index]),
+                            ),
+                          );
+                        }),
                       ),
-                      const SizedBox(height: 16),
-                    ],
-                  ],
+                    ),
+                  const SizedBox(height: 16),
+
+                  // 播放集数
+                  if (currentPlayList.isNotEmpty)
+                    const Text(
+                      "播放集数",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  if (currentPlayList.isNotEmpty) const SizedBox(height: 8),
+                  if (currentPlayList.isNotEmpty)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: List.generate(currentPlayList.length, (index) {
+                        final item = currentPlayList[index].split('\$');
+                        final title = item.first;
+                        final url = item.length > 1 ? item.last : item.first;
+
+                        return ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PlayerView(
+                                  flag: playFrom[vm.currentFromIndex],
+                                  id: url,
+                                  title: title,
+                                ),
+                              ),
+                            );
+                          },
+                          child: Text(title),
+                        );
+                      }),
+                    ),
                 ],
               ),
             );
@@ -100,24 +186,5 @@ class DetailView extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  List<Widget> _buildPlayItems(BuildContext context, List<String> items) {
-    return items.map((item) {
-      final parts = item.split(r'$');
-      final name = parts[0];
-      final id = parts.length > 1 ? parts[1] : '';
-      return ElevatedButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => PlayerView(flag: 'default', id: id),
-            ),
-          );
-        },
-        child: Text(name),
-      );
-    }).toList();
   }
 }
