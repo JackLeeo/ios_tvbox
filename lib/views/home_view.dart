@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:ios_tvbox/viewmodels/home_viewmodel.dart';
-import 'package:ios_tvbox/views/source_debugger.dart';
-import 'package:ios_tvbox/views/detail_view.dart';
+import '../viewmodels/home_viewmodel.dart';
+import './source_debugger.dart';
+import './detail_view.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
