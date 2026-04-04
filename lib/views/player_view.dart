@@ -27,6 +27,7 @@ class _PlayerViewState extends State<PlayerView> {
   void initState() {
     super.initState();
     _viewModel = Provider.of<PlayerViewModel>(context, listen: false);
+    // 适配media_kit_video 1.3.1 正确初始化方式
     _videoController = VideoController(_viewModel.player);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _viewModel.initPlay(widget.flag, widget.id);
@@ -35,8 +36,7 @@ class _PlayerViewState extends State<PlayerView> {
 
   @override
   void dispose() {
-    // 修复：VideoController的dispose方法正确调用方式
-    _videoController.dispose();
+    // 修复：media_kit_video 1.3.1 中VideoController无需手动dispose，由player.dispose()统一管理
     _viewModel.dispose();
     super.dispose();
   }
