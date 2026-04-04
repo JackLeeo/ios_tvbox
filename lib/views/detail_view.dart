@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:ios_tvbox/viewmodels/detail_viewmodel.dart';
-import 'package:ios_tvbox/views/player_view.dart';
+import '../viewmodels/detail_viewmodel.dart';
+import './player_view.dart';
 
 class DetailView extends StatefulWidget {
   final String videoId;
