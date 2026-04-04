@@ -3,6 +3,7 @@ import 'package:ios_tvbox/core/python_engine.dart';
 import 'package:ios_tvbox/models/spider_source.dart';
 import 'package:ios_tvbox/models/video_model.dart';
 import 'package:ios_tvbox/core/network_service.dart';
+import 'package:xpath_selector/xpath_selector.dart';
 import 'package:xpath_selector_html_parser/xpath_selector_html_parser.dart';
 import 'dart:convert';
 
@@ -13,21 +14,38 @@ class SpiderManager {
   static final SpiderManager instance = SpiderManager._internal();
   SpiderManager._internal();
 
+  // 对外暴露的只读属性
   List<SpiderSource> get sourceList => List.unmodifiable(_sourceList);
   SpiderSource? get currentSource => _currentSource;
+  bool get hasSource => _sourceList.isNotEmpty && _currentSource != null;
 
+  // 添加数据源
   Future<void> addSource(SpiderSource source) async {
     _sourceList.removeWhere((e) => e.key == source.key);
     _sourceList.add(source);
+    if (_currentSource == null) {
+      _currentSource = source;
+    }
   }
 
+  // 切换当前数据源
   void setCurrentSource(String key) {
-    _currentSource = _sourceList.firstWhere((e) => e.key == key);
+    final target = _sourceList.firstWhere((e) => e.key == key);
+    _currentSource = target;
   }
 
+  // 删除数据源
+  void removeSource(String key) {
+    _sourceList.removeWhere((e) => e.key == key);
+    if (_currentSource?.key == key) {
+      _currentSource = _sourceList.isNotEmpty ? _sourceList.first : null;
+    }
+  }
+
+  // 核心执行方法
   Future<Map<String, dynamic>> execute(String method, List<dynamic> args) async {
     if (_currentSource == null) {
-      throw Exception("未选择数据源");
+      throw Exception("请先选择数据源");
     }
 
     switch (_currentSource!.type) {
@@ -42,10 +60,30 @@ class SpiderManager {
     }
   }
 
-  // type1 标准JSON API源
+  // 封装首页数据获取
+  Future<List<VideoModel>> getHomeContent({bool filter = false}) async {
+    final result = await execute("homeContent", [filter]);
+    final list = result['list'] as List;
+    return list.map((e) => VideoModel.fromJson(e)).toList();
+  }
+
+  // 封装详情数据获取
+  Future<VideoModel> getDetailContent(String id) async {
+    final result = await execute("detailContent", [id]);
+    final list = result['list'] as List;
+    return VideoModel.fromJson(list.first);
+  }
+
+  // 封装搜索数据获取
+  Future<List<VideoModel>> searchContent(String wd, {bool quick = false, int pg = 1}) async {
+    final result = await execute("searchContent", [wd, quick, pg]);
+    final list = result['list'] as List;
+    return list.map((e) => VideoModel.fromJson(e)).toList();
+  }
+
+  // Type1 标准JSON API源
   Future<Map<String, dynamic>> _executeType1(String method, List<dynamic> args) async {
     final source = _currentSource!;
-    final networkService = NetworkService.instance;
     final Map<String, dynamic> params = {
       "method": method,
       "filter": args.isNotEmpty ? args[0] : null,
@@ -53,30 +91,28 @@ class SpiderManager {
       "pg": args.length > 2 ? args[2] : null,
       "extend": args.length > 3 ? args[3] : null,
       "wd": args.isNotEmpty ? args[0] : null,
+      "quick": args.length > 1 ? args[1] : null,
       "flag": args.length > 1 ? args[1] : null,
       "id": args.length > 2 ? args[2] : null,
+      "vipFlags": args.length > 3 ? args[3] : null,
     };
     params.removeWhere((key, value) => value == null);
 
-    final response = await networkService.get(source.api!, queryParameters: params);
+    final response = await NetworkService.instance.get(source.api!, queryParameters: params);
     return Map<String, dynamic>.from(response);
   }
 
-  // type2 XPath规则源
+  // Type2 XPath规则源
   Future<Map<String, dynamic>> _executeType2(String method, List<dynamic> args) async {
     final source = _currentSource!;
-    final networkService = NetworkService.instance;
-    final rule = jsonDecode(source.ext!); // ext字段存储XPath规则JSON配置
+    final rule = jsonDecode(source.ext!);
+    final html = await NetworkService.instance.get(source.api!);
+    final xpath = XPathSelector.html(html); // 正确的XPath初始化API
 
-    // 1. 请求目标页面HTML
-    final html = await networkService.get(source.api!);
-    // 2. 正确初始化XPath解析器（修复未定义错误）
-    final xpath = XPathSelector.html(html);
-
-    // 3. 按规则解析数据（适配TVBox标准XPath规则）
     switch (method) {
       case "homeContent":
-        final list = xpath.query(rule["home_list"]).nodes.map((node) {
+        final listNodes = xpath.query(rule["home_list"]).nodes;
+        final list = listNodes.map((node) {
           return {
             "id": node.query(rule["home_id"]).attr,
             "name": node.query(rule["home_name"]).text,
@@ -85,30 +121,62 @@ class SpiderManager {
           };
         }).toList();
         return {"list": list};
+
       case "detailContent":
-        final detailNode = xpath.query(rule["detail_root"]).node;
+        final id = args[0] as String;
+        final detailHtml = await NetworkService.instance.get(id);
+        final detailXpath = XPathSelector.html(detailHtml);
+        final detailNode = detailXpath.query(rule["detail_root"]).node;
+
+        if (detailNode == null) {
+          throw Exception("未找到详情数据");
+        }
+
+        // 解析播放列表
+        final playFrom = detailNode.query(rule["play_from"]).text.split("$$$");
+        final playUrlRaw = detailNode.query(rule["play_url"]).text.split("$$$");
+        final playList = playUrlRaw.map((item) {
+          return item.split('#').map((e) => e.trim()).toList();
+        }).toList();
+
         return {
           "list": [
             {
-              "vod_name": detailNode?.query(rule["detail_name"]).text,
-              "vod_pic": detailNode?.query(rule["detail_pic"]).attr,
-              "vod_remarks": detailNode?.query(rule["detail_remark"]).text,
-              "vod_content": detailNode?.query(rule["detail_content"]).text,
-              "vod_play_from": detailNode?.query(rule["play_from"]).text.split("$$$"),
-              "vod_play_url": detailNode?.query(rule["play_url"]).text.split("$$$"),
+              "vod_id": id,
+              "vod_name": detailNode.query(rule["detail_name"]).text,
+              "vod_pic": detailNode.query(rule["detail_pic"]).attr,
+              "vod_remarks": detailNode.query(rule["detail_remark"]).text,
+              "vod_year": detailNode.query(rule["detail_year"]).text,
+              "vod_area": detailNode.query(rule["detail_area"]).text,
+              "vod_lang": detailNode.query(rule["detail_lang"]).text,
+              "vod_content": detailNode.query(rule["detail_content"]).text,
+              "vod_play_from": playFrom,
+              "vod_play_url": playList,
             }
           ]
         };
+
+      case "playerContent":
+        final id = args[2] as String;
+        final playHtml = await NetworkService.instance.get(id);
+        final playXpath = XPathSelector.html(playHtml);
+        final playUrl = playXpath.query(rule["player_url"]).attr;
+
+        return {
+          "url": playUrl,
+          "header": {},
+        };
+
       default:
         throw Exception("XPath源暂不支持$method方法");
     }
   }
 
-  // type3 JS/Python动态脚本源
+  // Type3 JS/Python脚本源
   Future<Map<String, dynamic>> _executeType3(String method, List<dynamic> args) async {
     final source = _currentSource!;
-    // 区分JS和Python脚本（按api后缀判断，.js为JS，.py为Python）
-    if (source.api?.endsWith(".py") == true || source.ext?.startsWith("class MySpider") != true) {
+    // 区分Python和JS脚本
+    if (source.api?.endsWith(".py") == true || source.ext?.contains("class MySpider") != true) {
       return await PythonEngine.instance.executeScript(source, method, args);
     } else {
       return await JsEngine.instance.executeScript(source, method, args);
