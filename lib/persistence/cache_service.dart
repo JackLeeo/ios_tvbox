@@ -1,8 +1,8 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:ios_tvbox/models/video_model.dart';
 import 'dart:convert';
+import '../models/video_model.dart';
 
 class CacheService {
   static Database? _db;
@@ -82,7 +82,7 @@ class CacheService {
 
   // 存储用户配置
   Future<void> saveConfig(String key, String value) async {
-    if (_prefs == null) _prefs = await SharedPreferences.getInstance();
+    _prefs ??= await SharedPreferences.getInstance();
     await _prefs?.setString(key, value);
   }
 
