@@ -1,51 +1,27 @@
-# ios/Podfile（修正后，适配本地与GitHub Actions环境）
-platform :ios, '12.0'  # 最低支持iOS版本（可根据项目需求调整）
+# ios/Podfile（最终修正版，适配GitHub Actions与Flutter 3.41.6+）
+platform :ios, '12.0'  # 最低支持iOS版本（可调整）
 use_frameworks!
-ENV['COCOAPODS_DISABLE_STATS'] = 'true'  # 禁用CocoaPods统计（减少CI干扰）
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'  # 禁用CocoaPods统计
 
-# 1. 定义函数自动获取Flutter SDK路径（官方标准写法，适配所有环境）
-def flutter_root
-  # 读取Flutter自动生成的Generated.xcconfig文件（含FLUTTER_ROOT路径）
-  generated_xcode_build_settings_path = File.expand_path(
-    File.join('..', 'Flutter', 'Generated.xcconfig'), 
-    __FILE__  # 当前Podfile路径（ios/Podfile）
-  )
-  
-  # 校验文件存在性（若不存在则提示生成）
-  unless File.exist?(generated_xcode_build_settings_path)
-    raise "#{generated_xcode_build_settings_path} 必须存在。请先执行 `flutter pub get` 生成配置文件。"
-  end
-  
-  # 解析文件中的FLUTTER_ROOT变量
-  File.foreach(generated_xcode_build_settings_path) do |line|
-    matches = line.match(/FLUTTER_ROOT\=(.*)/)
-    return matches[1].strip if matches  # 返回Flutter SDK根目录
-  end
-  
-  raise "未在 #{generated_xcode_build_settings_path} 中找到FLUTTER_ROOT。尝试删除该文件后重新执行 `flutter pub get`。"
-end
+# 1. 从环境变量获取Flutter SDK路径（GitHub Actions自动设置）
+flutter_root = ENV['FLUTTER_ROOT']
+raise "FLUTTER_ROOT未设置，请确保Flutter已正确安装" if flutter_root.nil?
 
-# 2. 引入Flutter官方Xcode后端脚本（自动处理依赖与编译选项）
-require File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'xcode_backend.rb')
+# 2. 引入Flutter官方Podhelper（自动处理依赖与路径）
+podhelper_path = File.join(flutter_root, 'packages', 'flutter_tools', 'podhelper.rb')
+raise "Podhelper文件未找到：#{podhelper_path}" unless File.exist?(podhelper_path)
+require podhelper_path
 
 # 3. 配置Target（Runner）
 target 'Runner' do
   use_frameworks!
-  use_modular_headers!  # 支持模块化头文件（Flutter 3.0+要求）
-  
-  # 安装Flutter依赖（由xcode_backend.rb自动处理）
-  pod 'Flutter', :path => flutter_root
-  
-  # 若有插件依赖，在此处添加（如Firebase、地图等）
-  # pod 'SomePlugin', :path => '../some_plugin'
-  
-  # 测试Target（继承主Target配置）
-  target 'RunnerTests' do
-    inherit! :search_paths
-  end
+  use_modular_headers!  # Flutter 3.0+要求
+
+  # 安装Flutter依赖（Podhelper自动处理）
+  install_all_flutter_pods(flutter_application_path: flutter_root)
 end
 
-# 4. Post-install钩子（处理Flutter编译选项，官方自动生成）
+# 4. Post-install钩子（处理Flutter编译选项）
 post_install do |installer|
   flutter_post_install(installer) if defined?(flutter_post_install)
 end
