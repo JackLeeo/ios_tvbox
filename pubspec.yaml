@@ -16,7 +16,7 @@ dependencies:
   # JS爬虫引擎（TVBox核心功能，稳定可用）
   flutter_js: ^0.8.0
   # Python爬虫引擎（可选核心功能，稳定可用）
-  python_ffi: ^0.6.0
+  python_ffi: ^0.4.4
   python_ffi_dart: ^0.4.4
   # 【稳定核心】HTML解析（Dart官方维护，永久可用）
   html: ^0.15.4
