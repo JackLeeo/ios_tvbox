@@ -107,12 +107,12 @@ class XPathEvaluator {
   }
 
   List<Node> _applyPredicate(List<Node> nodes, String predicate) {
-    // 修复正则语法错误，使用Dart标准正则写法
+    // 修复正则语法错误：使用Dart原始字符串，正确转义
     final regex = RegExp(r'@(\w+)\s*=\s*["\'](sslocal://flow/file_open?url=.%2A%3F&flow_extra=eyJsaW5rX3R5cGUiOiJjb2RlX2ludGVycHJldGVyIn0=)["\']');
     final RegExpMatch? match = regex.firstMatch(predicate);
     if (match == null) return nodes;
 
-    // 修复RegExpMatch group方法空安全
+    // 修复空安全：匹配结果非空判断
     final attrName = match.group(1) ?? '';
     final attrValue = match.group(2) ?? '';
     if (attrName.isEmpty) return nodes;
@@ -124,7 +124,7 @@ class XPathEvaluator {
   }
 }
 
-// 修复petitparser 6.1.0 语法定义，适配官方API
+// 修复petitparser语法定义，解决anyChar未定义问题
 class XPathGrammarDefinition extends GrammarDefinition {
   const XPathGrammarDefinition();
 
@@ -149,8 +149,8 @@ class XPathGrammarDefinition extends GrammarDefinition {
         return {'axis': '.', 'predicate': list[1]};
       });
 
-  // 修复anyChar方法，在GrammarDefinition中必须用ref0引用
-  Parser predicate() => (ref0(anyChar) & char(']').not()).plus().flatten();
+  // 修复anyChar未定义：直接使用petitparser顶级函数anyChar()，无需ref0
+  Parser predicate() => (anyChar() & char(']').not()).plus().flatten();
 }
 // ====================== XPath解析器结束 ======================
 
@@ -243,22 +243,37 @@ class SpiderManager {
     };
     params.removeWhere((key, value) => value == null);
 
-    final response = await NetworkService.instance.get(source.api!, queryParameters: params);
+    // 修复空安全：source.api! 改为非空判断兜底
+    final api = source.api ?? '';
+    if (api.isEmpty) {
+      throw Exception("数据源API地址为空");
+    }
+
+    final response = await NetworkService.instance.get(api, queryParameters: params);
     return Map<String, dynamic>.from(response);
   }
 
   // Type2 XPath规则源（完整实现，100%兼容TVBox标准）
   Future<Map<String, dynamic>> _executeType2(String method, List<dynamic> args) async {
     final source = _currentSource!;
-    final rule = jsonDecode(source.ext!);
-    final html = await NetworkService.instance.get(source.api!);
-    // 初始化内置XPath解析器，修复标识符错误
+    // 修复空安全：source.ext! 改为非空判断兜底
+    final ext = source.ext ?? '';
+    if (ext.isEmpty) {
+      throw Exception("XPath规则为空");
+    }
+    final rule = jsonDecode(ext);
+    final api = source.api ?? '';
+    if (api.isEmpty) {
+      throw Exception("数据源API地址为空");
+    }
+    final html = await NetworkService.instance.get(api);
+    // 初始化内置XPath解析器
     final document = html_parser.parse(html);
     final evaluator = XPathEvaluator(document);
 
     switch (method) {
       case "homeContent":
-        // 解析首页列表，修复空安全错误
+        // 解析首页列表，修复空安全
         final listRule = rule["home_list"] as String? ?? '';
         final listResult = evaluator.query(listRule);
         final listNodes = listResult.nodes;
@@ -300,8 +315,8 @@ class SpiderManager {
         // 解析播放列表
         final playFromRule = rule["play_from"] as String? ?? '';
         final playUrlRule = rule["play_url"] as String? ?? '';
-        final playFrom = detailNodeEvaluator.query(playFromRule).string.split("$$$");
-        final playUrlRaw = detailNodeEvaluator.query(playUrlRule).string.split("$$$");
+        final playFrom = detailNodeEvaluator.query(playFromRule).string.split(r"$$$");
+        final playUrlRaw = detailNodeEvaluator.query(playUrlRule).string.split(r"$$$");
         final playList = playUrlRaw.map((item) {
           return item.split('#').map((e) => e.trim()).toList();
         }).toList();
