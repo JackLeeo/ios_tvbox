@@ -6,6 +6,7 @@ import './network_service.dart';
 class JsEngine {
   late final JavascriptRuntime _runtime;
   bool _isInitialized = false;
+  static const String _channelName = "tvbox_http";
 
   static final JsEngine instance = JsEngine._internal();
   JsEngine._internal();
@@ -14,7 +15,29 @@ class JsEngine {
     if (_isInitialized) return;
     _runtime = getJavascriptRuntime();
 
-    // 初始化全局环境
+    // 【适配flutter_js 0.8.0 官方标准API】注册Dart通道，供JS调用
+    _runtime.registerChannelHandler(
+      channelName: _channelName,
+      handler: (String method, dynamic args) async {
+        try {
+          if (method == 'get') {
+            final url = args[0] as String;
+            final headers = args.length > 1 ? Map<String, dynamic>.from(args[1]) : null;
+            return await NetworkService.instance.get(url, headers: headers);
+          } else if (method == 'post') {
+            final url = args[0] as String;
+            final data = args.length > 1 ? args[1] : null;
+            final headers = args.length > 2 ? Map<String, dynamic>.from(args[2]) : null;
+            return await NetworkService.instance.post(url, data: data, headers: headers);
+          }
+          return null;
+        } catch (e) {
+          throw Exception(e.toString());
+        }
+      },
+    );
+
+    // 初始化全局CatVodSpider基类
     final initResult = _runtime.evaluate("""
       class CatVodSpider {
         constructor() {}
@@ -28,68 +51,20 @@ class JsEngine {
       }
       var globalThis = this;
       var window = globalThis;
-    """);
-    if (initResult.isError) {
-      throw Exception("JS引擎初始化失败: ${initResult.rawResult}");
-    }
-
-    // 适配flutter_js 0.8.0 正确的双向通信API
-    _runtime.onMessage.listen((dynamic message) async {
-      if (message is! Map) return;
-      final String method = message['method'];
-      final List<dynamic> args = message['args'] ?? [];
-
-      try {
-        if (method == 'httpGet') {
-          final url = args[0] as String;
-          final headers = args.length > 1 ? Map<String, dynamic>.from(args[1]) : null;
-          final result = await NetworkService.instance.get(url, headers: headers);
-          _runtime.sendMessage({"result": result, "error": null});
-        } else if (method == 'httpPost') {
-          final url = args[0] as String;
-          final data = args.length > 1 ? args[1] : null;
-          final headers = args.length > 2 ? Map<String, dynamic>.from(args[2]) : null;
-          final result = await NetworkService.instance.post(url, data: data, headers: headers);
-          _runtime.sendMessage({"result": result, "error": null});
-        }
-      } catch (e) {
-        _runtime.sendMessage({"result": null, "error": e.toString()});
-      }
-    });
-
-    // 注入http工具到JS全局
-    _runtime.evaluate("""
+      // 注入http工具，适配flutter_js 0.8.0 官方调用方式
       const http = {
         get: async (url, headers) => {
-          return new Promise((resolve, reject) => {
-            const listener = (msg) => {
-              if (msg.error) reject(msg.error);
-              else resolve(msg.result);
-              window.onMessage.remove(listener);
-            };
-            window.onMessage.listen(listener);
-            window.sendMessage({
-              method: 'httpGet',
-              args: [url, headers || {}]
-            });
-          });
+          return await flutter_invokeMethod('$_channelName', 'get', [url, headers || {}]);
         },
         post: async (url, data, headers) => {
-          return new Promise((resolve, reject) => {
-            const listener = (msg) => {
-              if (msg.error) reject(msg.error);
-              else resolve(msg.result);
-              window.onMessage.remove(listener);
-            };
-            window.onMessage.listen(listener);
-            window.sendMessage({
-              method: 'httpPost',
-              args: [url, data, headers || {}]
-            });
-          });
+          return await flutter_invokeMethod('$_channelName', 'post', [url, data, headers || {}]);
         }
       };
     """);
+
+    if (initResult.isError) {
+      throw Exception("JS引擎初始化失败: ${initResult.rawResult}");
+    }
 
     _isInitialized = true;
   }
@@ -114,7 +89,7 @@ class JsEngine {
       }
     }
 
-    // 执行目标方法（修复多余大括号警告）
+    // 执行目标方法
     final argsJson = args.map((e) => jsonEncode(e)).join(',');
     final jsCode = """
       (async () => {
