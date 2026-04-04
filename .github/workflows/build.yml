@@ -1,46 +1,61 @@
-name: Build TVBox
+name: Build iOS TVBox Release
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
-  build-ios:
-    runs-on: macos-14  # 必须用 macOS 14+
+  build-ios-unsigned:
+    runs-on: macos-14
     steps:
-      - name: Checkout code
+      - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Set up Flutter
+      - name: Setup Flutter SDK
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.6'  # 和文档推荐版本严格一致
-          channel: 'stable'
+          flutter-version: '3.41.6'
+          channel: stable
           cache: true
 
-      - name: Install Flutter dependencies
-        run: flutter pub get  # 关键：必须在 pod install 前执行
+      - name: Clean project & install dependencies
+        run: |
+          flutter clean
+          flutter pub get
 
-      - name: Install iOS Pods
+      - name: Install iOS CocoaPods
         run: |
           cd ios
-          pod install --repo-update  # 加上 --repo-update 避免源过时
+          pod install --repo-update
 
-      - name: Build unsigned iOS IPA
-        run: flutter build ios --release --no-codesign
+      - name: Xcode Archive 无签名归档核心步骤
+        run: |
+          cd ios
+          xcodebuild archive \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -destination generic/platform=iOS \
+            -archivePath build/Runner.xcarchive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
 
-      - name: Export IPA
+      - name: Export 无签名 IPA
         run: |
           cd ios
           xcodebuild -exportArchive \
-            -archivePath build/ios/archive/Runner.xcarchive \
-            -exportPath build/ios/ipa \
-            -exportOptionsPlist ../exportOptions.plist
+            -archivePath build/Runner.xcarchive \
+            -exportPath build/export_unsigned \
+            -exportOptionsPlist ../exportOptions.plist \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
 
-      - name: Upload IPA artifact
+      - name: Upload unsigned IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tvbox_unsigned_ios_ipa
-          path: ios/build/ios/ipa/*.ipa
+          name: TVBox-iOS-Unsigned-IPA
+          path: ios/build/export_unsigned/*.ipa
