@@ -160,7 +160,7 @@ class _DetailViewState extends State<DetailView> {
                       spacing: 8,
                       runSpacing: 8,
                       children: List.generate(currentPlayList.length, (index) {
-                        final item = currentPlayList[index].split('\$');
+                        final item = currentPlayList[index].split(r'$');
                         final title = item.first;
                         final url = item.length > 1 ? item.last : item.first;
 
