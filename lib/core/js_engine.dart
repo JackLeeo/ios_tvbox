@@ -1,7 +1,7 @@
 import 'package:flutter_js/flutter_js.dart';
-import 'package:ios_tvbox/models/spider_source.dart';
-import 'package:ios_tvbox/core/network_service.dart';
 import 'dart:convert';
+import '../models/spider_source.dart';
+import './network_service.dart';
 
 class JsEngine {
   late final JavascriptRuntime _runtime;
@@ -33,27 +33,27 @@ class JsEngine {
       throw Exception("JS引擎初始化失败: ${initResult.rawResult}");
     }
 
-    // 注册网络请求通道（flutter_js标准API）
-    _runtime.registerChannelHandler('httpGet', (args) async {
-      try {
-        final url = args[0] as String;
-        final headers = args.length > 1 ? Map<String, dynamic>.from(args[1]) : null;
-        final result = await NetworkService.instance.get(url, headers: headers);
-        return result;
-      } catch (e) {
-        return {"error": e.toString()};
-      }
-    });
+    // 适配flutter_js 0.8.0 正确的双向通信API
+    _runtime.onMessage.listen((dynamic message) async {
+      if (message is! Map) return;
+      final String method = message['method'];
+      final List<dynamic> args = message['args'] ?? [];
 
-    _runtime.registerChannelHandler('httpPost', (args) async {
       try {
-        final url = args[0] as String;
-        final data = args.length > 1 ? args[1] : null;
-        final headers = args.length > 2 ? Map<String, dynamic>.from(args[2]) : null;
-        final result = await NetworkService.instance.post(url, data: data, headers: headers);
-        return result;
+        if (method == 'httpGet') {
+          final url = args[0] as String;
+          final headers = args.length > 1 ? Map<String, dynamic>.from(args[1]) : null;
+          final result = await NetworkService.instance.get(url, headers: headers);
+          _runtime.sendMessage({"result": result, "error": null});
+        } else if (method == 'httpPost') {
+          final url = args[0] as String;
+          final data = args.length > 1 ? args[1] : null;
+          final headers = args.length > 2 ? Map<String, dynamic>.from(args[2]) : null;
+          final result = await NetworkService.instance.post(url, data: data, headers: headers);
+          _runtime.sendMessage({"result": result, "error": null});
+        }
       } catch (e) {
-        return {"error": e.toString()};
+        _runtime.sendMessage({"result": null, "error": e.toString()});
       }
     });
 
@@ -61,10 +61,32 @@ class JsEngine {
     _runtime.evaluate("""
       const http = {
         get: async (url, headers) => {
-          return await channel.invokeMethod('httpGet', [url, headers || {}]);
+          return new Promise((resolve, reject) => {
+            const listener = (msg) => {
+              if (msg.error) reject(msg.error);
+              else resolve(msg.result);
+              window.onMessage.remove(listener);
+            };
+            window.onMessage.listen(listener);
+            window.sendMessage({
+              method: 'httpGet',
+              args: [url, headers || {}]
+            });
+          });
         },
         post: async (url, data, headers) => {
-          return await channel.invokeMethod('httpPost', [url, data, headers || {}]);
+          return new Promise((resolve, reject) => {
+            const listener = (msg) => {
+              if (msg.error) reject(msg.error);
+              else resolve(msg.result);
+              window.onMessage.remove(listener);
+            };
+            window.onMessage.listen(listener);
+            window.sendMessage({
+              method: 'httpPost',
+              args: [url, data, headers || {}]
+            });
+          });
         }
       };
     """);
@@ -92,12 +114,12 @@ class JsEngine {
       }
     }
 
-    // 执行目标方法（异步方法用evaluateAsync）
+    // 执行目标方法（修复多余大括号警告）
     final argsJson = args.map((e) => jsonEncode(e)).join(',');
     final jsCode = """
       (async () => {
         const spider = new MySpider();
-        const result = await spider.${method}(${argsJson});
+        const result = await spider.$method($argsJson);
         return JSON.stringify(result);
       })();
     """;
