@@ -1,88 +1,98 @@
-import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/video_model.dart';
+import 'package:ios_tvbox/models/video_model.dart';
+import 'dart:convert';
 
 class CacheService {
   static Database? _db;
   static SharedPreferences? _prefs;
+  static const String _videoCacheTable = 'video_cache';
+
+  static final CacheService instance = CacheService._internal();
+  CacheService._internal();
 
   // 初始化
-  static Future<void> init() async {
+  Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
-    
-    // 初始化数据库
+    await _initDatabase();
+  }
+
+  // 初始化数据库
+  Future<void> _initDatabase() async {
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, 'tvbox_cache.db');
+
     _db = await openDatabase(
-      join(await getDatabasesPath(), 'tvbox_cache.db'),
-      onCreate: (db, version) {
-        return db.execute(
-          'CREATE TABLE videos(id TEXT PRIMARY KEY, data TEXT, timestamp INTEGER)',
-        );
-      },
+      path,
       version: 1,
+      onCreate: (db, version) async {
+        await db.execute('''
+          CREATE TABLE $_videoCacheTable (
+            id TEXT PRIMARY KEY,
+            data TEXT NOT NULL,
+            create_time INTEGER NOT NULL
+          )
+        ''');
+      },
     );
   }
 
-  // 缓存视频详情
-  static Future<void> cacheVideo(VideoModel video) async {
-    final data = {
-      'id': video.id,
-      // 使用JSON序列化存储，避免toString导致的解析错误
-      'data': jsonEncode(video.toJson()),
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
-    };
-    await _db?.insert(
-      'videos',
-      data,
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-  }
-
-  // 获取缓存的视频
-  static Future<VideoModel?> getCachedVideo(String id) async {
-    final maps = await _db?.query(
-      'videos',
+  // 缓存视频详情（24小时有效期）
+  Future<void> cacheVideoDetail(VideoModel video) async {
+    if (_db == null) await _initDatabase();
+    await _db?.delete(
+      _videoCacheTable,
       where: 'id = ?',
-      whereArgs: [id],
+      whereArgs: [video.id],
     );
-    
-    if (maps != null && maps.isNotEmpty) {
-      // 检查缓存有效期（24小时）
-      final timestamp = maps.first['timestamp'] as int;
-      if (DateTime.now().millisecondsSinceEpoch - timestamp > 24 * 60 * 60 * 1000) {
-        return null;
-      }
-      // 正确解析JSON数据
-      final dataJson = maps.first['data'] as String;
-      final dataMap = jsonDecode(dataJson) as Map<String, dynamic>;
-      return VideoModel.fromJson(dataMap);
-    }
-    return null;
+    await _db?.insert(
+      _videoCacheTable,
+      {
+        'id': video.id,
+        'data': jsonEncode(video.toJson()),
+        'create_time': DateTime.now().millisecondsSinceEpoch,
+      },
+    );
   }
 
-  // 保存用户配置
-  static Future<void> saveConfig(String key, dynamic value) async {
-    if (value is String) {
-      await _prefs?.setString(key, value);
-    } else if (value is bool) {
-      await _prefs?.setBool(key, value);
-    } else if (value is int) {
-      await _prefs?.setInt(key, value);
-    } else if (value is Map) {
-      await _prefs?.setString(key, jsonEncode(value));
-    }
+  // 获取缓存的视频详情
+  Future<VideoModel?> getVideoCache(String id) async {
+    if (_db == null) await _initDatabase();
+    final result = await _db?.query(
+      _videoCacheTable,
+      where: 'id = ? AND create_time > ?',
+      whereArgs: [id, DateTime.now().subtract(const Duration(hours: 24)).millisecondsSinceEpoch],
+    );
+
+    if (result == null || result.isEmpty) return null;
+    final data = result.first['data'] as String;
+    return VideoModel.fromJson(jsonDecode(data));
+  }
+
+  // 清理过期缓存
+  Future<void> cleanExpiredCache() async {
+    if (_db == null) await _initDatabase();
+    await _db?.delete(
+      _videoCacheTable,
+      where: 'create_time < ?',
+      whereArgs: [DateTime.now().subtract(const Duration(hours: 24)).millisecondsSinceEpoch],
+    );
+  }
+
+  // 存储用户配置
+  Future<void> saveConfig(String key, String value) async {
+    if (_prefs == null) _prefs = await SharedPreferences.getInstance();
+    await _prefs?.setString(key, value);
   }
 
   // 获取用户配置
-  static T? getConfig<T>(String key) {
-    if (T == Map) {
-      final str = _prefs?.getString(key);
-      if (str != null) {
-        return jsonDecode(str) as T?;
-      }
-      return null;
-    }
-    return _prefs?.get(key) as T?;
+  String? getConfig(String key) {
+    return _prefs?.getString(key);
+  }
+
+  // 删除用户配置
+  Future<void> removeConfig(String key) async {
+    await _prefs?.remove(key);
   }
 }
