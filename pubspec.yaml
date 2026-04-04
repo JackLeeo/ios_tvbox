@@ -1,0 +1,49 @@
+name: tvbox_flutter
+description: Flutter跨平台TVBox客户端（支持type3源）
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.13.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8  # 恢复iOS图标依赖（若使用Cupertino图标）
+  # 核心框架
+  provider: ^6.1.1          # 状态管理
+  dio: ^5.4.0               # 网络请求
+  shared_preferences: ^2.2.2 # 轻量存储
+  sqflite: ^2.3.0            # 关系型存储
+  path: ^1.8.3               # 路径处理
+  # 解析工具（替换xpath为xpath_selector）
+  html: ^0.15.4              # HTML解析（内置XPath功能）
+  xpath_selector: ^3.0.2      # XPath查询（支持空安全，pub.dev有效版本）
+  intl: ^0.20.2              # 日期格式化（升级到outdated建议的0.20.2）
+  convert: ^3.1.1            # 编码转换
+  crypto: ^3.0.3              # 加密工具
+  # type3源支持（替换flutter_python为python_ffi）
+  flutter_js: ^0.8.5         # JavaScript引擎（执行CatJS源）
+  python_ffi: ^0.4.4         # Python运行时（升级到outdated建议的0.4.4）
+  # 播放器（升级media_kit_video到2.0.1）
+  media_kit: ^1.1.10         # 跨平台播放器
+  media_kit_video: ^2.0.1    # 视频渲染（升级到outdated建议的2.0.1）
+  media_kit_libs_video: ^1.0.4 # 平台播放器库
+  # UI组件
+  flutter_svg: ^2.0.9        # SVG图标
+  cached_network_image: ^3.3.1 # 图片缓存
+  flutter_spinkit: ^5.2.0    # 加载动画
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0      # Lint规则（升级到outdated建议的6.0.0）
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/js/              # JS工具库
+    - assets/images/          # 资源目录
+    - assets/images/icon.png          # 应用图标（1024x1024像素）
+    - assets/images/launch_image.png   # 启动图（1920x1080像素）
+    - assets/images/default_poster.png # 默认视频封面（300x450像素）

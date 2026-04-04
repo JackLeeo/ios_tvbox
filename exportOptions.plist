@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>development</string>  <!-- 导出方式为开发版（无签名） -->
+    <key>teamID</key>
+    <string></string>  <!-- 留空（无签名） -->
+    <key>compileBitcode</key>
+    <false/>  <!-- 关闭Bitcode编译（减少包体积） -->
+    <key>uploadBitcode</key>
+    <false/>
+    <key>uploadSymbols</key>
+    <false/>
+    <key>signingStyle</key>
+    <string>manual</string>  <!-- 手动签名（无签名） -->
+    <key>signingCertificate</key>
+    <string></string>  <!-- 留空（无签名） -->
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.yourname.tvbox</key>  <!-- 与`ios/Runner/Info.plist`的`CFBundleIdentifier`一致（替换为你的Bundle ID） -->
+        <string></string>  <!-- 留空（无签名） -->
+    </dict>
+    <key>stripSwiftSymbols</key>
+    <true/>  <!-- 移除Swift符号（减少包体积） -->
+    <key>thinning</key>
+    <string>&lt;none&gt;</string>  <!-- 不裁剪架构（支持所有设备） -->
+</dict>
+</plist>
