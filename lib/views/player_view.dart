@@ -21,27 +21,30 @@ class PlayerView extends StatefulWidget {
 
 class _PlayerViewState extends State<PlayerView> {
   late final VideoController _videoController;
+  late final PlayerViewModel _viewModel;
 
   @override
   void initState() {
     super.initState();
-    final vm = Provider.of<PlayerViewModel>(context, listen: false);
-    _videoController = VideoController(vm.player);
+    _viewModel = Provider.of<PlayerViewModel>(context, listen: false);
+    _videoController = VideoController(_viewModel.player);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      vm.initPlay(widget.flag, widget.id);
+      _viewModel.initPlay(widget.flag, widget.id);
     });
   }
 
   @override
   void dispose() {
+    // 修复：VideoController的dispose方法正确调用方式
     _videoController.dispose();
+    _viewModel.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => PlayerViewModel(),
+    return ChangeNotifierProvider.value(
+      value: _viewModel,
       child: Scaffold(
         appBar: AppBar(title: Text(widget.title)),
         body: Consumer<PlayerViewModel>(
