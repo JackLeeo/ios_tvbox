@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:ios_tvbox/viewmodels/player_viewmodel.dart';
+import '../viewmodels/player_viewmodel.dart';
 
 class PlayerView extends StatefulWidget {
   final String flag;
