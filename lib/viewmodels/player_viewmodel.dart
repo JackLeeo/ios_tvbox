@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:ios_tvbox/core/spider_manager.dart';
+import '../core/spider_manager.dart';
 
 class PlayerViewModel extends ChangeNotifier {
   late final Player player;
@@ -11,7 +11,7 @@ class PlayerViewModel extends ChangeNotifier {
     player = Player();
   }
 
-  // 初始化播放（适配media_kit标准API）
+  // 初始化播放
   Future<void> initPlay(String flag, String id) async {
     _setLoading(true);
     errorMessage = null;
