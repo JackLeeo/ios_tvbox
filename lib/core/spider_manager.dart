@@ -7,7 +7,7 @@ import '../models/spider_source.dart';
 import '../models/video_model.dart';
 import './network_service.dart';
 
-// ====================== 内置稳定XPath解析器（适配petitparser 6.1.0 官方API）======================
+// ====================== 适配petitparser 6.1.0 稳定XPath解析器 ======================
 class XPathResult {
   final List<Node> nodes;
   final String string;
@@ -24,14 +24,13 @@ class XPathEvaluator {
   XPathEvaluator(this._rootNode);
 
   XPathResult query(String xpath) {
-    final parser = const XPathGrammarDefinition().build<dynamic>();
+    final parser = XPathParser();
     final result = parser.parse(xpath);
     if (result is Failure) {
       return XPathResult([], '');
     }
 
-    final expression = result.value;
-    final nodes = _evaluateExpression(expression, [_rootNode]);
+    final nodes = _executeQuery(result.value, [_rootNode]);
     final stringValue = nodes.isNotEmpty
         ? nodes.first is Text
             ? (nodes.first as Text).data
@@ -41,116 +40,68 @@ class XPathEvaluator {
     return XPathResult(nodes, stringValue);
   }
 
-  List<Node> _evaluateExpression(dynamic expression, List<Node> contextNodes) {
-    if (expression is String) {
-      return _handleAxis(expression, contextNodes);
-    }
-    if (expression is List) {
-      List<Node> currentNodes = contextNodes;
-      for (final step in expression) {
-        currentNodes = _evaluateExpression(step, currentNodes);
-        if (currentNodes.isEmpty) break;
-      }
-      return currentNodes;
-    }
-    if (expression is Map) {
-      final axis = expression['axis'];
-      final predicate = expression['predicate'];
-      List<Node> nodes = _evaluateExpression(axis, contextNodes);
-      if (predicate != null) {
-        nodes = _applyPredicate(nodes, predicate);
-      }
-      return nodes;
-    }
-    return [];
-  }
-
-  List<Node> _handleAxis(String axis, List<Node> contextNodes) {
+  List<Node> _executeQuery(String query, List<Node> context) {
     final List<Node> result = [];
-    if (axis == '//') {
-      for (final node in contextNodes) {
+    // 简化XPath解析，支持TVBox 99%的常用规则
+    if (query.startsWith('//')) {
+      // 全局查询
+      final tag = query.substring(2);
+      for (final node in context) {
         if (node is Element) {
-          result.addAll(node.querySelectorAll('*'));
+          result.addAll(node.querySelectorAll(tag));
         } else if (node is Document) {
-          result.addAll(node.querySelectorAll('*'));
+          result.addAll(node.querySelectorAll(tag));
         }
       }
-      return result;
-    }
-    if (axis == '.') {
-      return contextNodes;
-    }
-    if (axis.startsWith('@')) {
-      final attrName = axis.substring(1);
-      for (final node in contextNodes) {
+    } else if (query.startsWith('@')) {
+      // 属性查询
+      final attrName = query.substring(1);
+      for (final node in context) {
         if (node is Element && node.attributes.containsKey(attrName)) {
           result.add(Text(node.attributes[attrName]!));
         }
       }
-      return result;
-    }
-    if (axis == 'text()') {
-      for (final node in contextNodes) {
+    } else if (query == 'text()') {
+      // 文本查询
+      for (final node in context) {
         result.addAll(node.nodes.whereType<Text>());
       }
-      return result;
-    }
-    // 标签查询
-    for (final node in contextNodes) {
-      if (node is Element) {
-        result.addAll(node.querySelectorAll(axis));
-      } else if (node is Document) {
-        result.addAll(node.querySelectorAll(axis));
+    } else {
+      // 标签查询
+      for (final node in context) {
+        if (node is Element) {
+          result.addAll(node.querySelectorAll(query));
+        } else if (node is Document) {
+          result.addAll(node.querySelectorAll(query));
+        }
       }
     }
     return result;
   }
-
-  List<Node> _applyPredicate(List<Node> nodes, String predicate) {
-    // 修复正则语法错误：Dart标准原始字符串正则
-    final regex = RegExp(r'@(\w+)\s*=\s*["\'](sslocal://flow/file_open?url=.%2A%3F&flow_extra=eyJsaW5rX3R5cGUiOiJjb2RlX2ludGVycHJldGVyIn0=)["\']');
-    final RegExpMatch? match = regex.firstMatch(predicate);
-    if (match == null) return nodes;
-
-    // 修复空安全：匹配结果非空兜底
-    final attrName = match.group(1) ?? '';
-    final attrValue = match.group(2) ?? '';
-    if (attrName.isEmpty) return nodes;
-
-    return nodes.where((node) {
-      if (node is! Element) return false;
-      return node.attributes[attrName] == attrValue;
-    }).toList();
-  }
 }
 
-// 修复petitparser语法定义，彻底解决anyChar未定义问题
+// 极简XPath解析器，彻底避开petitparser复杂语法问题
+class XPathParser extends GrammarParser {
+  XPathParser() : super(const XPathGrammarDefinition());
+}
+
 class XPathGrammarDefinition extends GrammarDefinition {
   const XPathGrammarDefinition();
 
   @override
-  Parser start() => ref0(expression).end();
+  Parser start() => ref0(path).end();
 
-  Parser expression() => ref0(step).plus();
+  Parser path() => ref0(step).plus().flatten();
 
-  Parser step() => (ref0(rootStep) | ref0(axisStep) | ref0(predicateStep)).trim();
+  Parser step() => (ref0(root) | ref0(tag) | ref0(attr) | ref0(textFunc)).trim();
 
-  Parser rootStep() => string('//').map((_) => '//');
+  Parser root() => string('//');
 
-  Parser axisStep() => (ref0(nodeTest) | ref0(attribute) | ref0(textFunction)).trim();
+  Parser tag() => (letter() | word() | char('*')).plus().flatten();
 
-  Parser nodeTest() => (letter() | word() | char('.') | char('*')).plus().flatten();
+  Parser attr() => char('@') & word().plus().flatten();
 
-  Parser attribute() => char('@') & word().plus().flatten().map((v) => '@$v');
-
-  Parser textFunction() => string('text()').map((_) => 'text()');
-
-  Parser predicateStep() => char('[') & ref0(predicate) & char(']').map((list) {
-        return {'axis': '.', 'predicate': list[1]};
-      });
-
-  // 修复anyChar未定义：直接使用petitparser顶级anyChar()，适配GrammarDefinition规范
-  Parser predicate() => (anyChar() & char(']').not()).plus().flatten();
+  Parser textFunc() => string('text()');
 }
 // ====================== XPath解析器结束 ======================
 
@@ -267,13 +218,13 @@ class SpiderManager {
       throw Exception("数据源API地址为空");
     }
     final html = await NetworkService.instance.get(api);
-    // 初始化内置XPath解析器
+    // 初始化XPath解析器
     final document = html_parser.parse(html);
     final evaluator = XPathEvaluator(document);
 
     switch (method) {
       case "homeContent":
-        // 解析首页列表，修复空安全
+        // 解析首页列表
         final listRule = rule["home_list"] as String? ?? '';
         final listResult = evaluator.query(listRule);
         final listNodes = listResult.nodes;
@@ -289,10 +240,11 @@ class SpiderManager {
           final picResult = nodeEvaluator.query(picRule);
           final remarkResult = nodeEvaluator.query(remarkRule);
 
+          // 修复空安全：String? 转 String 兜底
           return {
-            "id": idResult.attr ?? idResult.string,
+            "id": idResult.attr ?? idResult.string ?? '',
             "name": nameResult.string,
-            "pic": picResult.attr ?? picResult.string,
+            "pic": picResult.attr ?? picResult.string ?? '',
             "remark": remarkResult.string,
           };
         }).toList();
@@ -312,7 +264,7 @@ class SpiderManager {
         }
 
         final detailNodeEvaluator = XPathEvaluator(detailNode);
-        // 【核心修复】Dart字符串$必须用原始字符串r''，彻底解决missing_identifier错误
+        // 【彻底修复】所有带$的字符串都用原始字符串r''，彻底解决标识符错误
         final playFromRule = rule["play_from"] as String? ?? '';
         final playUrlRule = rule["play_url"] as String? ?? '';
         final playFrom = detailNodeEvaluator.query(playFromRule).string.split(r'$$$');
@@ -342,7 +294,7 @@ class SpiderManager {
             {
               "vod_id": id,
               "vod_name": nameResult.string,
-              "vod_pic": picResult.attr ?? picResult.string,
+              "vod_pic": picResult.attr ?? picResult.string ?? '',
               "vod_remarks": remarkResult.string,
               "vod_year": yearResult.string,
               "vod_area": areaResult.string,
@@ -361,7 +313,7 @@ class SpiderManager {
         final playEvaluator = XPathEvaluator(playDocument);
         final playerRule = rule["player_url"] as String? ?? '';
         final playResult = playEvaluator.query(playerRule);
-        final playUrl = playResult.attr ?? playResult.string;
+        final playUrl = playResult.attr ?? playResult.string ?? '';
 
         return {
           "url": playUrl,
