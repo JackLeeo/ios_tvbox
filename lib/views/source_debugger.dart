@@ -1,57 +1,75 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../core/spider_manager.dart';
-import '../models/spider_source.dart';
+import 'package:ios_tvbox/core/spider_manager.dart';
+import 'package:ios_tvbox/models/spider_source.dart';
+import 'package:ios_tvbox/models/video_model.dart';
+import 'dart:convert';
 
-class SourceDebuggerView extends StatefulWidget {
-  const SourceDebuggerView({super.key});
+class SourceDebugger extends StatefulWidget {
+  const SourceDebugger({super.key});
 
   @override
-  State<SourceDebuggerView> createState() => _SourceDebuggerViewState();
+  State<SourceDebugger> createState() => _SourceDebuggerState();
 }
 
-class _SourceDebuggerViewState extends State<SourceDebuggerView> {
-  final TextEditingController _apiController = TextEditingController();
-  final TextEditingController _extController = TextEditingController();
-  int _type = 3;
-  String? _result;
+class _SourceDebuggerState extends State<SourceDebugger> {
+  final _formKey = GlobalKey<FormState>();
+  final _keyController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _typeController = TextEditingController(text: '3');
+  final _apiController = TextEditingController();
+  final _extController = TextEditingController();
+
+  String? _testResult;
   bool _isTesting = false;
 
   Future<void> _testSource() async {
+    if (!_formKey.currentState!.validate()) return;
+
     setState(() {
       _isTesting = true;
-      _result = null;
+      _testResult = null;
     });
 
     try {
-      final spiderManager = Provider.of<SpiderManager>(context, listen: false);
-      
-      // 生成唯一测试key，避免覆盖已有源
-      final debugKey = 'debug_${DateTime.now().millisecondsSinceEpoch}';
-      
-      // 创建测试源
       final source = SpiderSource(
-        key: debugKey,
-        name: 'Debug Source',
-        type: _type,
-        api: _apiController.text,
-        ext: _extController.text.isNotEmpty ? _extController.text : null,
+        key: _keyController.text.trim(),
+        name: _nameController.text.trim(),
+        type: int.parse(_typeController.text.trim()),
+        api: _apiController.text.trim(),
+        ext: _extController.text.trim(),
       );
-      
-      await spiderManager.addSource(source);
-      
-      // 测试首页方法
-      final result = await spiderManager.getHomeContent(debugKey);
-      
-      // 安全序列化结果
-      final safeResult = _deepConvertToMap(result);
+
+      // 先添加源
+      await SpiderManager.instance.addSource(source);
+      SpiderManager.instance.setCurrentSource(source.key);
+
+      // 测试homeContent方法
+      final result = await SpiderManager.instance.execute("homeContent", [false]);
+
+      // 验证返回数据格式
+      if (result['list'] is! List) {
+        throw Exception("返回数据格式错误，list字段不是数组");
+      }
+
+      // 验证视频数据格式
+      if (result['list'].isNotEmpty) {
+        final firstItem = result['list'][0];
+        if (firstItem is! Map) {
+          throw Exception("列表项不是对象格式");
+        }
+        if (firstItem['id'] == null || firstItem['name'] == null) {
+          throw Exception("视频数据缺少id或name字段");
+        }
+        // 验证VideoModel解析正常
+        VideoModel.fromJson(firstItem);
+      }
+
       setState(() {
-        _result = jsonEncode(safeResult);
+        _testResult = "✅ 源测试通过！\n返回数据：\n${const JsonEncoder.withIndent('  ').convert(result)}";
       });
     } catch (e) {
       setState(() {
-        _result = '错误: $e';
+        _testResult = "❌ 源测试失败！\n错误信息：\n$e";
       });
     } finally {
       setState(() {
@@ -60,89 +78,121 @@ class _SourceDebuggerViewState extends State<SourceDebuggerView> {
     }
   }
 
-  // 深度转换为可序列化的Map
-  dynamic _deepConvertToMap(dynamic value) {
-    if (value is Map) {
-      return value.map((k, v) => MapEntry(k, _deepConvertToMap(v)));
-    } else if (value is List) {
-      return value.map((e) => _deepConvertToMap(e)).toList();
-    } else if (value is VideoModel) {
-      return value.toJson();
-    } else {
-      return value;
+  Future<void> _saveSource() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    try {
+      final source = SpiderSource(
+        key: _keyController.text.trim(),
+        name: _nameController.text.trim(),
+        type: int.parse(_typeController.text.trim()),
+        api: _apiController.text.trim(),
+        ext: _extController.text.trim(),
+      );
+
+      await SpiderManager.instance.addSource(source);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("源保存成功！")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("源保存失败：$e")),
+      );
     }
+  }
+
+  @override
+  void dispose() {
+    _keyController.dispose();
+    _nameController.dispose();
+    _typeController.dispose();
+    _apiController.dispose();
+    _extController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('源调试工具')),
+      appBar: AppBar(title: const Text("源调试工具")),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 源类型选择
-            DropdownButtonFormField<int>(
-              value: _type,
-              decoration: const InputDecoration(labelText: '源类型'),
-              items: const [
-                DropdownMenuItem(value: 1, child: Text('type1 JSON')),
-                DropdownMenuItem(value: 2, child: Text('type2 XPath')),
-                DropdownMenuItem(value: 3, child: Text('type3 Spider')),
-              ],
-              onChanged: (v) => setState(() => _type = v!),
-            ),
-            const SizedBox(height: 16),
-            // API地址
-            TextField(
-              controller: _apiController,
-              decoration: const InputDecoration(
-                labelText: 'API地址',
-                hintText: '输入源的API地址',
-                border: OutlineInputBorder(),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: _keyController,
+                decoration: const InputDecoration(labelText: "源唯一标识(key)"),
+                validator: (v) => v?.isEmpty == true ? "请输入key" : null,
+                // 修复废弃参数：value替换为initialValue
+                initialValue: _keyController.text,
               ),
-              maxLines: 1,
-            ),
-            const SizedBox(height: 16),
-            // 脚本内容
-            if (_type == 3)
-              TextField(
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: "源名称"),
+                validator: (v) => v?.isEmpty == true ? "请输入源名称" : null,
+                initialValue: _nameController.text,
+              ),
+              TextFormField(
+                controller: _typeController,
+                decoration: const InputDecoration(labelText: "源类型(type)"),
+                keyboardType: TextInputType.number,
+                validator: (v) {
+                  if (v?.isEmpty == true) return "请输入源类型";
+                  final type = int.tryParse(v!);
+                  if (type == null || type < 1 || type > 3) {
+                    return "源类型只能是1、2、3";
+                  }
+                  return null;
+                },
+                initialValue: _typeController.text,
+              ),
+              TextFormField(
+                controller: _apiController,
+                decoration: const InputDecoration(labelText: "API地址/远程脚本地址"),
+                initialValue: _apiController.text,
+              ),
+              TextFormField(
                 controller: _extController,
-                decoration: const InputDecoration(
-                  labelText: '脚本内容(可选)',
-                  hintText: '输入base64或明文脚本',
-                  border: OutlineInputBorder(),
+                decoration: const InputDecoration(labelText: "脚本内容/规则配置"),
+                maxLines: 10,
+                initialValue: _extController.text,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  ElevatedButton(
+                    onPressed: _isTesting ? null : _testSource,
+                    child: _isTesting
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text("测试源"),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton(
+                    onPressed: _saveSource,
+                    child: const Text("保存源"),
+                  ),
+                ],
+              ),
+              if (_testResult != null) ...[
+                const SizedBox(height: 16),
+                const Text("测试结果：", style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.black12,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(_testResult!),
                 ),
-                maxLines: 8,
-              ),
-            const SizedBox(height: 16),
-            // 测试按钮
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isTesting ? null : _testSource,
-                child: _isTesting
-                    ? const CircularProgressIndicator()
-                    : const Text('测试源'),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // 结果展示
-            if (_result != null) ...[
-              const Text('测试结果', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(_result!, style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
