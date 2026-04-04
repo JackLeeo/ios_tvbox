@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:ios_tvbox/views/home_view.dart';
-import 'package:ios_tvbox/viewmodels/home_viewmodel.dart';
-import 'package:ios_tvbox/core/spider_manager.dart';
-import 'package:ios_tvbox/core/js_engine.dart';
-import 'package:ios_tvbox/core/python_engine.dart';
-import 'package:ios_tvbox/core/network_service.dart';
-import 'package:ios_tvbox/views/source_debugger.dart';
-import 'package:ios_tvbox/views/detail_view.dart';
-import 'package:ios_tvbox/views/player_view.dart';
-import 'package:ios_tvbox/models/spider_source.dart';
+import './views/home_view.dart';
+import './viewmodels/home_viewmodel.dart';
+import './core/spider_manager.dart';
+import './core/js_engine.dart';
+import './core/python_engine.dart';
+import './core/network_service.dart';
+import './views/source_debugger.dart';
+import './views/detail_view.dart';
+import './views/player_view.dart';
+import './models/spider_source.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -74,50 +74,4 @@ class MySpider extends CatVodSpider {
             ? '这是一个开源测试视频，用于验证播放器功能' 
             : '世界上第一部开源电影',
           vod_play_from: ['默认线路'],
-          vod_play_url: [
-            ['正片\$' + ids]
-          ]
-        }
-      ]
-    };
-  }
-  async playerContent(flag, id, vipFlags) {
-    return {
-      url: id,
-      header: {}
-    };
-  }
-}
-""",
-  ));
-
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => HomeViewModel()),
-      ],
-      child: MaterialApp(
-        title: 'TVBox Flutter',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          brightness: Brightness.dark,
-          useMaterial3: true,
-        ),
-        debugShowCheckedModeBanner: false,
-        home: const HomeView(),
-        routes: {
-          '/debug': (context) => const SourceDebugger(),
-          '/detail': (context) => const DetailView(videoId: ''),
-          '/player': (context) => const PlayerView(flag: '', id: '', title: ''),
-        },
-      ),
-    );
-  }
-}
+          vod_play
