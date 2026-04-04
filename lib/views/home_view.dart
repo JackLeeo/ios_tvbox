@@ -1,123 +1,132 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import '../viewmodels/home_viewmodel.dart';
-import '../models/video_model.dart';
-import 'detail_view.dart';
-import 'source_debugger.dart';
+import 'package:ios_tvbox/viewmodels/home_viewmodel.dart';
+import 'package:ios_tvbox/views/source_debugger.dart';
+import 'package:ios_tvbox/views/detail_view.dart';
 
-class HomeView extends StatelessWidget {
+class HomeView extends StatefulWidget {
   const HomeView({super.key});
+
+  @override
+  State<HomeView> createState() => _HomeViewState();
+}
+
+class _HomeViewState extends State<HomeView> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<HomeViewModel>(context, listen: false).loadHomeData();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TVBox'),
+        title: const Text("TVBox Flutter"),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => Provider.of<HomeViewModel>(context, listen: false).refresh(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.bug_report),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SourceDebuggerView()),
-            ),
-          ),
-        ],
-      ),
-      body: Consumer<HomeViewModel>(
-        builder: (context, vm, _) {
-          if (vm.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (vm.error != null) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(vm.error!, textAlign: TextAlign.center),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: vm.refresh,
-                    child: const Text('重试'),
-                  ),
-                ],
-              ),
-            );
-          }
-          
-          return GridView.builder(
-            padding: const EdgeInsets.all(8),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              childAspectRatio: 0.7,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-            ),
-            itemCount: vm.videoList.length,
-            itemBuilder: (context, index) {
-              final video = vm.videoList[index];
-              return _VideoCard(video: video);
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SourceDebugger()),
+              );
             },
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _VideoCard extends StatelessWidget {
-  final VideoModel video;
-  const _VideoCard({required this.video});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => DetailView(video: video),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: CachedNetworkImage(
-                imageUrl: video.pic,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  color: Colors.grey[200],
-                  child: const Center(child: Icon(Icons.movie)),
-                ),
-                errorWidget: (context, url, error) => Container(
-                  color: Colors.grey[200],
-                  child: const Icon(Icons.error),
-                ),
-              ),
-            ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            video.name,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12),
-          ),
-          if (video.remarks != null)
-            Text(
-              video.remarks!,
-              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
         ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () => Provider.of<HomeViewModel>(context, listen: false).refresh(),
+        child: Consumer<HomeViewModel>(
+          builder: (context, vm, child) {
+            if (vm.isLoading && vm.videoList.isEmpty) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (vm.errorMessage != null && vm.videoList.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(vm.errorMessage!, textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: vm.loadHomeData,
+                      child: const Text("重试"),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return GridView.builder(
+              padding: const EdgeInsets.all(12),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                childAspectRatio: 0.7,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              itemCount: vm.videoList.length,
+              itemBuilder: (context, index) {
+                final video = vm.videoList[index];
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => DetailView(videoId: video.id),
+                      ),
+                    );
+                  },
+                  child: Card(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                            child: Image.network(
+                              video.pic,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Center(child: Icon(Icons.broken_image));
+                              },
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                video.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                video.remark,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
