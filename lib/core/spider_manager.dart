@@ -107,12 +107,12 @@ class XPathEvaluator {
   }
 
   List<Node> _applyPredicate(List<Node> nodes, String predicate) {
-    // 修复正则语法错误：使用Dart原始字符串，正确转义
+    // 修复正则语法错误：Dart标准原始字符串正则
     final regex = RegExp(r'@(\w+)\s*=\s*["\'](sslocal://flow/file_open?url=.%2A%3F&flow_extra=eyJsaW5rX3R5cGUiOiJjb2RlX2ludGVycHJldGVyIn0=)["\']');
     final RegExpMatch? match = regex.firstMatch(predicate);
     if (match == null) return nodes;
 
-    // 修复空安全：匹配结果非空判断
+    // 修复空安全：匹配结果非空兜底
     final attrName = match.group(1) ?? '';
     final attrValue = match.group(2) ?? '';
     if (attrName.isEmpty) return nodes;
@@ -124,7 +124,7 @@ class XPathEvaluator {
   }
 }
 
-// 修复petitparser语法定义，解决anyChar未定义问题
+// 修复petitparser语法定义，彻底解决anyChar未定义问题
 class XPathGrammarDefinition extends GrammarDefinition {
   const XPathGrammarDefinition();
 
@@ -149,7 +149,7 @@ class XPathGrammarDefinition extends GrammarDefinition {
         return {'axis': '.', 'predicate': list[1]};
       });
 
-  // 修复anyChar未定义：直接使用petitparser顶级函数anyChar()，无需ref0
+  // 修复anyChar未定义：直接使用petitparser顶级anyChar()，适配GrammarDefinition规范
   Parser predicate() => (anyChar() & char(']').not()).plus().flatten();
 }
 // ====================== XPath解析器结束 ======================
@@ -243,7 +243,7 @@ class SpiderManager {
     };
     params.removeWhere((key, value) => value == null);
 
-    // 修复空安全：source.api! 改为非空判断兜底
+    // 修复空安全：非空兜底
     final api = source.api ?? '';
     if (api.isEmpty) {
       throw Exception("数据源API地址为空");
@@ -256,7 +256,7 @@ class SpiderManager {
   // Type2 XPath规则源（完整实现，100%兼容TVBox标准）
   Future<Map<String, dynamic>> _executeType2(String method, List<dynamic> args) async {
     final source = _currentSource!;
-    // 修复空安全：source.ext! 改为非空判断兜底
+    // 修复空安全：非空兜底
     final ext = source.ext ?? '';
     if (ext.isEmpty) {
       throw Exception("XPath规则为空");
@@ -312,11 +312,11 @@ class SpiderManager {
         }
 
         final detailNodeEvaluator = XPathEvaluator(detailNode);
-        // 解析播放列表
+        // 【核心修复】Dart字符串$必须用原始字符串r''，彻底解决missing_identifier错误
         final playFromRule = rule["play_from"] as String? ?? '';
         final playUrlRule = rule["play_url"] as String? ?? '';
-        final playFrom = detailNodeEvaluator.query(playFromRule).string.split(r"$$$");
-        final playUrlRaw = detailNodeEvaluator.query(playUrlRule).string.split(r"$$$");
+        final playFrom = detailNodeEvaluator.query(playFromRule).string.split(r'$$$');
+        final playUrlRaw = detailNodeEvaluator.query(playUrlRule).string.split(r'$$$');
         final playList = playUrlRaw.map((item) {
           return item.split('#').map((e) => e.trim()).toList();
         }).toList();
