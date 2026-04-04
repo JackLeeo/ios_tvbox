@@ -2,98 +2,59 @@ class VideoModel {
   final String id;
   final String name;
   final String pic;
-  final String? year;
-  final String? type;
-  final String? lang;
-  final String? area;
-  final String? des;
-  final String? remarks;
-  final String? actor;
-  final String? director;
+  final String remark;
+  final String? content;
   final List<String>? playFrom;
-  final List<List<String>>? playList; // 兼容嵌套结构：[[线路1$id1, 线路2$id2], ...]
+  final List<List<String>>? playUrl;
 
   VideoModel({
     required this.id,
     required this.name,
     required this.pic,
-    this.year,
-    this.type,
-    this.lang,
-    this.area,
-    this.des,
-    this.remarks,
-    this.actor,
-    this.director,
+    this.remark = '',
+    this.content,
     this.playFrom,
-    this.playList,
+    this.playUrl,
   });
 
-  // 从JSON解析，兼容TVBox标准字段
+  // 从JSON解析数据（修复语法错误和类型转换错误）
   factory VideoModel.fromJson(Map<String, dynamic> json) {
-    // 处理播放源
-    List<String>? playFrom;
-    List<List<String>>? playList;
-    
-    // 兼容标准vod字段
-    final rawPlayFrom = json['playFrom'] ?? json['vod_play_from'];
-    final rawPlayUrl = json['playList'] ?? json['vod_play_url'];
-    
-    if (rawPlayFrom != null && rawPlayUrl != null) {
-      if (rawPlayFrom is String) {
-        playFrom = rawPlayFrom.split('$$');
-      } else if (rawPlayFrom is List) {
-        playFrom = rawPlayFrom.map((e) => e.toString()).toList();
-      }
-      
-      if (rawPlayUrl is String) {
-        playList = [rawPlayUrl.split('#')];
-      } else if (rawPlayUrl is List) {
-        // 处理嵌套列表结构
-        playList = rawPlayUrl.map((e) {
-          if (e is String) {
-            return e.split('#');
-          } else if (e is List) {
-            return e.map((item) => item.toString()).toList();
-          }
-          return [];
-        }).toList();
-      }
+    // 处理播放地址的类型转换，兼容TVBox标准格式
+    List<List<String>>? parsedPlayUrl;
+    if (json['vod_play_url'] != null) {
+      final rawPlayUrl = json['vod_play_url'] as List;
+      parsedPlayUrl = rawPlayUrl.map((item) {
+        if (item is List) {
+          return item.map((e) => e.toString()).toList();
+        }
+        // 兼容TVBox标准的#分隔播放地址格式
+        return item.toString().split('#').map((e) => e.trim()).toList();
+      }).toList();
     }
 
     return VideoModel(
-      id: json['id'] ?? json['vod_id'] ?? '',
-      name: json['name'] ?? json['vod_name'] ?? '',
-      pic: json['pic'] ?? json['vod_pic'] ?? '',
-      year: json['year'] ?? json['vod_year']?.toString(),
-      type: json['type'] ?? json['vod_type']?.toString(),
-      lang: json['lang'] ?? json['vod_lang']?.toString(),
-      area: json['area'] ?? json['vod_area']?.toString(),
-      des: json['des'] ?? json['vod_content']?.toString(),
-      remarks: json['remarks'] ?? json['vod_remarks']?.toString(),
-      actor: json['actor'] ?? json['vod_actor']?.toString(),
-      director: json['director'] ?? json['vod_director']?.toString(),
-      playFrom: playFrom,
-      playList: playList,
+      id: json['id']?.toString() ?? json['vod_id']?.toString() ?? '',
+      name: json['name']?.toString() ?? json['vod_name']?.toString() ?? '',
+      pic: json['pic']?.toString() ?? json['vod_pic']?.toString() ?? '',
+      remark: json['remark']?.toString() ?? json['vod_remarks']?.toString() ?? '',
+      content: json['content']?.toString() ?? json['vod_content']?.toString(),
+      playFrom: json['vod_play_from'] != null
+          ? (json['vod_play_from'] as List).map((e) => e.toString()).toList()
+          : null,
+      playUrl: parsedPlayUrl,
     );
   }
 
-  // 转换为JSON
+  // 转JSON格式
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
       'pic': pic,
-      'year': year,
-      'type': type,
-      'lang': lang,
-      'area': area,
-      'des': des,
-      'remarks': remarks,
-      'actor': actor,
-      'director': director,
-      'playFrom': playFrom,
-      'playList': playList,
+      'remark': remark,
+      'content': content,
+      'vod_play_from': playFrom,
+      'vod_play_url': playUrl,
     };
   }
 }
