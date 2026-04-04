@@ -5,7 +5,6 @@ import './views/home_view.dart';
 import './viewmodels/home_viewmodel.dart';
 import './core/spider_manager.dart';
 import './core/js_engine.dart';
-import './core/python_engine.dart';
 import './core/network_service.dart';
 import './views/source_debugger.dart';
 import './views/detail_view.dart';
@@ -21,10 +20,9 @@ void main() async {
   // 初始化核心服务
   await NetworkService.instance.init();
   await JsEngine.instance.init();
-  await PythonEngine.instance.init();
 
-  // 内置默认测试源（完整无截断）
-  await SpiderManager.instance.addSource(SpiderSource(
+  // 内置默认测试源（修复const警告）
+  await SpiderManager.instance.addSource(const SpiderSource(
     key: "default_test",
     name: "内置测试源",
     type: 3,
