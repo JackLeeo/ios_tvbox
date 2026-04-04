@@ -18,19 +18,27 @@ jobs:
         with:
           flutter-version: '3.41.6'
           channel: stable
-          cache: true
+          cache: false # 关闭缓存，彻底避免旧缓存污染
 
-      - name: Clean project & install dependencies
+      - name: 【关键预检查】Dart静态分析（提前发现所有编译错误）
+        run: |
+          flutter pub get
+          flutter analyze --no-fatal-infos --no-fatal-warnings # 只拦截致命错误
+
+      - name: 【强制彻底清理】全量清理构建缓存
         run: |
           flutter clean
-          flutter pub get
+          rm -rf ios/Pods
+          rm -rf ios/Podfile.lock
+          rm -rf .dart_tool
+          rm -rf build
 
-      - name: Install iOS CocoaPods
+      - name: 重新安装依赖
         run: |
-          cd ios
-          pod install --repo-update
+          flutter pub get
+          cd ios && pod deintegrate && pod install --repo-update --verbose
 
-      - name: Xcode Archive 无签名归档核心步骤
+      - name: Xcode Archive 无签名归档（开启详细日志）
         run: |
           cd ios
           xcodebuild archive \
@@ -41,7 +49,8 @@ jobs:
             -archivePath build/Runner.xcarchive \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            -verbose # 开启详细日志，定位脚本失败原因
 
       - name: Export 无签名 IPA
         run: |
