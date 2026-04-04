@@ -23,7 +23,7 @@ jobs:
           flutter-version: 3.41.6  # 与你提供的参考代码一致
           channel: stable
           cache: true
-          cache-key: flutter-3.19.6-ios  # 缓存键（避免与其他项目冲突）
+          cache-key: flutter-3.41.6-ios  # 缓存键（避免与其他项目冲突）
           cache-path: ${{ runner.tool_cache }}/flutter
 
       # 3. 配置 Flutter 环境（禁用分析、显示版本、清理缓存）
