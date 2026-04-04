@@ -15,24 +15,23 @@ dependencies:
   dio: ^5.5.0+1
   # JS爬虫引擎（TVBox核心功能，稳定可用）
   flutter_js: ^0.8.0
-  # Python爬虫引擎（可选核心功能，稳定可用）
-  python_ffi: ^0.4.4
-  python_ffi_dart: ^0.4.4
-  # 【稳定核心】HTML解析（Dart官方维护，永久可用）
+  # HTML解析（Dart官方维护，永久可用）
   html: ^0.15.4
-  # 【稳定核心】语法解析（实现XPath能力，生态顶级稳定包）
-  petitparser: ^6.0.2
+  # 语法解析（实现XPath能力，生态顶级稳定包）
+  petitparser: ^6.1.0
   # 本地存储（官方维护，稳定可用）
   sqflite: ^2.3.3+1
   shared_preferences: ^2.3.2
-  path_provider: ^2.1.4
+  path_provider: ^2.1.5
   path: ^1.9.0
-  # 播放器核心（全平台稳定可用）
+  # 播放器核心（全平台稳定可用，适配当前版本）
   media_kit: ^1.1.10+1
-  media_kit_video: ^1.2.4
-  media_kit_native_event_loop: ^1.0.8
+  media_kit_video: ^1.3.1
+  media_kit_native_event_loop: ^1.0.9
   # 加密工具（官方维护，稳定可用）
   crypto: ^3.0.5
+  # 日期处理（补全缺失依赖）
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
