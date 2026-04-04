@@ -56,9 +56,10 @@ class _DetailViewState extends State<DetailView> {
             final video = vm.videoDetail!;
             final playFrom = video.playFrom ?? [];
             final playList = video.playUrl ?? [];
+            // 修复dead_null_aware_expression警告
             final currentPlayList = playFrom.isNotEmpty && playList.length > vm.currentFromIndex
                 ? playList[vm.currentFromIndex]
-                : [];
+                : <String>[];
 
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
