@@ -54,11 +54,12 @@ class _DetailViewState extends State<DetailView> {
             }
 
             final video = vm.videoDetail!;
-            final playFrom = video.playFrom ?? [];
-            final playList = video.playUrl ?? [];
-            // 修复dead_null_aware_expression警告
+            final playFrom = video.playFrom ?? <String>[];
+            final playList = video.playUrl ?? <List<String>>[];
+            
+            // 核心修复：删掉无用空合并，直接安全判断，消除 dead_null_aware_expression
             List<String> currentPlayList = [];
-            if (playFrom.isNotEmpty && playList.length > vm.currentFromIndex) {
+            if (playFrom.isNotEmpty && vm.currentFromIndex >= 0 && playList.length > vm.currentFromIndex) {
               currentPlayList = playList[vm.currentFromIndex];
             }
 
@@ -67,7 +68,6 @@ class _DetailViewState extends State<DetailView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 封面与基础信息
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -100,27 +100,23 @@ class _DetailViewState extends State<DetailView> {
                             Text("年份：${video.year ?? '未知'}"),
                             Text("地区：${video.area ?? '未知'}"),
                             Text("语言：${video.lang ?? '未知'}"),
-                            Text("状态：${video.remark ?? '未知'}"),
+                            Text("状态：${video.remarks ?? '未知'}"),
                           ],
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-
-                  // 视频简介
                   const Text(
                     "剧情简介",
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    video.des ?? video.content ?? "暂无简介",
+                    video.content.isNotEmpty ? video.content : "暂无简介",
                     style: const TextStyle(height: 1.5),
                   ),
                   const SizedBox(height: 24),
-
-                  // 播放线路
                   if (playFrom.isNotEmpty)
                     const Text(
                       "播放线路",
@@ -147,8 +143,6 @@ class _DetailViewState extends State<DetailView> {
                       ),
                     ),
                   const SizedBox(height: 16),
-
-                  // 播放集数
                   if (currentPlayList.isNotEmpty)
                     const Text(
                       "播放集数",
@@ -163,7 +157,6 @@ class _DetailViewState extends State<DetailView> {
                         final item = currentPlayList[index].split(r'$');
                         final title = item.first;
                         final url = item.length > 1 ? item.last : item.first;
-
                         return ElevatedButton(
                           onPressed: () {
                             Navigator.push(
