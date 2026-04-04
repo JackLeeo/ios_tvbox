@@ -1,7 +1,7 @@
 import 'package:python_ffi/python_ffi.dart';
-import 'package:ios_tvbox/models/spider_source.dart';
-import 'package:ios_tvbox/core/network_service.dart';
 import 'dart:convert';
+import '../models/spider_source.dart';
+import './network_service.dart';
 
 class PythonEngine {
   bool _isInitialized = false;
@@ -12,7 +12,7 @@ class PythonEngine {
   Future<void> init() async {
     if (_isInitialized) return;
     // 适配python_ffi 0.6.0 正确初始化API
-    await PythonFfi.instance.initialize();
+    await PythonFfi.init();
     _isInitialized = true;
   }
 
@@ -22,12 +22,12 @@ class PythonEngine {
     // 加载远程脚本
     if (source.api?.isNotEmpty == true) {
       final remoteScript = await NetworkService.instance.get(source.api!);
-      PythonFfi.instance.runString(remoteScript);
+      PythonFfi.instance.eval(remoteScript);
     }
 
     // 加载本地脚本
     if (source.ext?.isNotEmpty == true) {
-      PythonFfi.instance.runString(source.ext!);
+      PythonFfi.instance.eval(source.ext!);
     }
 
     // 执行目标方法
@@ -35,24 +35,27 @@ class PythonEngine {
     final execCode = """
 import json
 spider = MySpider()
-result = spider.${method}(${argsJson})
+result = spider.$method($argsJson)
 print(json.dumps(result))
 """;
 
-    final execResult = PythonFfi.instance.runString(execCode);
-    if (execResult.stderr.isNotEmpty) {
-      throw Exception("Python脚本执行失败: ${execResult.stderr}");
+    final execResult = PythonFfi.instance.eval(execCode);
+    final stderr = execResult.stderr;
+    final stdout = execResult.stdout;
+
+    if (stderr.isNotEmpty) {
+      throw Exception("Python脚本执行失败: $stderr");
     }
 
     try {
-      return jsonDecode(execResult.stdout);
+      return jsonDecode(stdout);
     } catch (e) {
-      throw Exception("Python返回数据解析失败: $e, 原始数据: ${execResult.stdout}");
+      throw Exception("Python返回数据解析失败: $e, 原始数据: $stdout");
     }
   }
 
   Future<void> dispose() async {
-    // 适配python_ffi正确释放API
+    // 适配python_ffi 0.6.0 正确释放API
     PythonFfi.instance.finalize();
     _isInitialized = false;
   }
