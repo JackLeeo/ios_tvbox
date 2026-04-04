@@ -1,11 +1,11 @@
-import 'package:ios_tvbox/core/js_engine.dart';
-import 'package:ios_tvbox/core/python_engine.dart';
-import 'package:ios_tvbox/models/spider_source.dart';
-import 'package:ios_tvbox/models/video_model.dart';
-import 'package:ios_tvbox/core/network_service.dart';
+import 'dart:convert';
 import 'package:xpath_selector/xpath_selector.dart';
 import 'package:xpath_selector_html_parser/xpath_selector_html_parser.dart';
-import 'dart:convert';
+import './js_engine.dart';
+import './python_engine.dart';
+import '../models/spider_source.dart';
+import '../models/video_model.dart';
+import './network_service.dart';
 
 class SpiderManager {
   final List<SpiderSource> _sourceList = [];
@@ -23,9 +23,7 @@ class SpiderManager {
   Future<void> addSource(SpiderSource source) async {
     _sourceList.removeWhere((e) => e.key == source.key);
     _sourceList.add(source);
-    if (_currentSource == null) {
-      _currentSource = source;
-    }
+    _currentSource ??= source;
   }
 
   // 切换当前数据源
@@ -107,7 +105,7 @@ class SpiderManager {
     final source = _currentSource!;
     final rule = jsonDecode(source.ext!);
     final html = await NetworkService.instance.get(source.api!);
-    final xpath = XPathSelector.html(html); // 正确的XPath初始化API
+    final xpath = XPathSelector.html(html);
 
     switch (method) {
       case "homeContent":
