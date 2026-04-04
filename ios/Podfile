@@ -1,7 +1,7 @@
-# CocoaPods标准配置，适配Flutter 3.x+与GitHub Actions
+# Uncomment this line to define a global platform for your project
 platform :ios, '12.0'
 
-# 禁用CocoaPods统计，减少CI干扰
+# CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', {
@@ -10,35 +10,36 @@ project 'Runner', {
   'Release' => :release,
 }
 
-# 自动从Flutter生成的配置文件读取SDK路径，比环境变量更可靠
 def flutter_root
-  generated_xcode_build_settings_path = File.expand_path(File.join('..', '.ios', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
   unless File.exist?(generated_xcode_build_settings_path)
     raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
   end
 
   File.foreach(generated_xcode_build_settings_path) do |line|
-    matches = line.match(/FLUTTER_ROOT=(.*)/)
-    if matches
-      return matches[1].strip
-    end
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
   end
-  raise 'Could not find FLUTTER_ROOT from Generated.xcconfig'
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
 end
 
-# 加载Flutter的Pod辅助脚本，定义flutter_install_all_ios_pods等方法
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_ios_podfile_setup
 
 target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
-  # 官方标准的Flutter Pod安装方法
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    # 确保所有 Pod 的最低部署版本与项目一致
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '12.0'
+    end
   end
 end
