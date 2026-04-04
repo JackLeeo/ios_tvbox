@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:ios_tvbox/core/spider_manager.dart';
-import 'package:ios_tvbox/models/spider_source.dart';
-import 'package:ios_tvbox/models/video_model.dart';
 import 'dart:convert';
+import '../core/spider_manager.dart';
+import '../models/spider_source.dart';
+import '../models/video_model.dart';
 
 class SourceDebugger extends StatefulWidget {
   const SourceDebugger({super.key});
