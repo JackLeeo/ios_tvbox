@@ -1,30 +1,72 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'core/spider_manager.dart';
-import 'viewmodels/home_viewmodel.dart';
-import 'views/home_view.dart';
-import 'views/source_debugger.dart';
-import 'views/detail_view.dart';
-import 'views/player_view.dart';
-import 'models/video_model.dart';
+import 'package:ios_tvbox/views/home_view.dart';
+import 'package:ios_tvbox/viewmodels/home_viewmodel.dart';
+import 'package:ios_tvbox/core/spider_manager.dart';
+import 'package:ios_tvbox/core/js_engine.dart';
+import 'package:ios_tvbox/core/python_engine.dart';
+import 'package:ios_tvbox/views/source_debugger.dart';
+import 'package:ios_tvbox/views/detail_view.dart';
+import 'package:ios_tvbox/views/player_view.dart';
+import 'package:ios_tvbox/models/spider_source.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized(); // 初始化Flutter绑定（异步操作必需）
-  
-  // 初始化爬虫管理器（核心引擎）
-  final SpiderManager spiderManager = SpiderManager();
-  await spiderManager.init(); // 启动JS/Python引擎
-  
-  // 运行应用（MultiProvider包裹全局状态）
-  runApp(
-    MultiProvider(
-      providers: [
-        Provider<SpiderManager>.value(value: spiderManager), // 全局爬虫管理器
-        ChangeNotifierProvider(create: (ctx) => HomeViewModel(spiderManager)), // 首页状态
-      ],
-      child: const MyApp(),
-    ),
-  );
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 初始化引擎
+  await JsEngine.instance.init();
+  await PythonEngine.instance.init();
+
+  // 内置默认测试源，保障首次启动可正常运行
+  await SpiderManager.instance.addSource(SpiderSource(
+    key: "test_source",
+    name: "测试源",
+    type: 3,
+    api: "",
+    ext: """
+class MySpider extends CatVodSpider {
+  async homeContent(filter) {
+    return {
+      list: [
+        {
+          id: '1',
+          name: '测试视频1',
+          pic: 'https://via.placeholder.com/300x400',
+          remark: '测试'
+        },
+        {
+          id: '2',
+          name: '测试视频2',
+          pic: 'https://via.placeholder.com/300x400',
+          remark: '测试'
+        }
+      ]
+    };
+  }
+  async detailContent(ids) {
+    return {
+      list: [
+        {
+          vod_name: '测试视频',
+          vod_pic: 'https://via.placeholder.com/300x400',
+          vod_content: '这是一个测试视频',
+          vod_play_from: ['测试线路'],
+          vod_play_url: ['测试$https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4']
+        }
+      ]
+    };
+  }
+  async playerContent(flag, id, vipFlags) {
+    return {
+      url: id,
+      header: {}
+    };
+  }
+}
+""",
+  ));
+
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -32,19 +74,23 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'TVBox Flutter',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      initialRoute: '/',
-      routes: {
-        '/': (ctx) => const HomeView(), // 首页
-        '/debug': (ctx) => const SourceDebuggerView(), // 源调试工具
-        '/detail': (ctx) => DetailView(video: ModalRoute.of(ctx)!.settings.arguments as VideoModel), // 详情页（传参）
-        '/player': (ctx) => PlayerView(
-              flag: ModalRoute.of(ctx)!.settings.arguments['flag'] as String,
-              id: ModalRoute.of(ctx)!.settings.arguments['id'] as String,
-            ), // 播放页（传参）
-      },
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => HomeViewModel()),
+      ],
+      child: MaterialApp(
+        title: 'TVBox Flutter',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          brightness: Brightness.dark,
+        ),
+        home: const HomeView(),
+        routes: {
+          '/debug': (context) => const SourceDebugger(),
+          '/detail': (context) => const DetailView(),
+          '/player': (context) => const PlayerView(),
+        },
+      ),
     );
   }
 }
