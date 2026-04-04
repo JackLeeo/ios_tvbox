@@ -9,34 +9,33 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # 状态管理
+  # 状态管理（官方推荐，稳定可用）
   provider: ^6.1.1
-  # 网络请求
-  dio: ^5.4.0
-  # JS爬虫引擎
+  # 网络请求（Flutter生态最主流，稳定可用）
+  dio: ^5.5.0+1
+  # JS爬虫引擎（TVBox核心功能，稳定可用）
   flutter_js: ^0.8.0
-  # Python爬虫引擎
+  # Python爬虫引擎（可选核心功能，稳定可用）
   python_ffi: ^0.6.0
   python_ffi_dart: ^0.4.4
-  # 【替换后】XPath解析稳定依赖（pub.dev 100%可用）
+  # HTML解析（官方Dart团队维护，永久可用，兜底网页解析）
   html: ^0.15.4
-  xpath: ^1.0.0
-  # 本地存储
-  sqflite: ^2.3.0
-  shared_preferences: ^2.2.2
-  path_provider: ^2.1.2
+  # 本地存储（官方维护，稳定可用）
+  sqflite: ^2.3.3+1
+  shared_preferences: ^2.3.2
+  path_provider: ^2.1.4
   path: ^1.9.0
-  # 播放器
-  media_kit: ^1.1.10
+  # 播放器核心（全平台稳定可用）
+  media_kit: ^1.1.10+1
   media_kit_video: ^1.2.4
   media_kit_native_event_loop: ^1.0.8
-  # 加密工具
-  crypto: ^3.0.3
+  # 加密工具（官方维护，稳定可用）
+  crypto: ^3.0.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
+  flutter_lints: ^4.0.0
 
 flutter:
   uses-material-design: true
