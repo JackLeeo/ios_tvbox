@@ -43,17 +43,17 @@ class VodSpider:
 
   // 执行Python爬虫脚本（模型预训练知识：用python_ffi的runCode()执行脚本）
   Future<Map<String, dynamic>> executeScript(
-    String script, 
-    String method, 
+    String script,
+    String method,
     List<dynamic> args
   ) async {
     if (!_isInitialized) await init();
     if (_python == null) throw Exception('Python引擎未初始化');
-    
+
     try {
       // 注入用户脚本
       await _python!.runCode(script);
-      
+
       // 创建实例并调用方法（文档内原有逻辑，保持不变）
       final argsJson = json.encode(args);
       final callCode = '''
@@ -65,7 +65,7 @@ func = getattr(spider, '$method')
 result = func(*args)
 print(json.dumps(result))
 ''';
-      
+
       final result = await _python!.runCode(callCode);
       return json.decode(result) as Map<String, dynamic>;
     } catch (e) {
@@ -73,11 +73,11 @@ print(json.dumps(result))
     }
   }
 
-  // 释放资源（模型预训练知识：用python_ffi的shutdown()关闭解释器）
+  // 释放资源修复：移除 python_ffi:0.4.4 不存在的 shutdown 方法
   void dispose() {
     if (_isInitialized) {
       try {
-        _python?.shutdown(); // 关闭Python解释器
+        // 适配 0.4.4 版本：无 shutdown API，直接清空引用即可安全回收
       } catch (_) {}
       _python = null;
       _isInitialized = false;
