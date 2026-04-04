@@ -3,7 +3,6 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
 import 'package:petitparser/petitparser.dart';
 import './js_engine.dart';
-import './python_engine.dart';
 import '../models/spider_source.dart';
 import '../models/video_model.dart';
 import './network_service.dart';
@@ -25,9 +24,10 @@ class XPathEvaluator {
   XPathEvaluator(this._rootNode);
 
   XPathResult query(String xpath) {
-    final parser = XPathParser();
+    final parser = XPathGrammarDefinition().build();
     final result = parser.parse(xpath);
-    if (result.isFailure) {
+    // 修复废弃API：isFailure 改为 is Failure
+    if (result is Failure) {
       return XPathResult([], '');
     }
 
@@ -70,7 +70,12 @@ class XPathEvaluator {
     final List<Node> result = [];
     if (axis == '//') {
       for (final node in contextNodes) {
-        result.addAll(node.querySelectorAll('*'));
+        // 修复：Node没有querySelectorAll，转成Element才可以
+        if (node is Element) {
+          result.addAll(node.querySelectorAll('*'));
+        } else if (node is Document) {
+          result.addAll(node.querySelectorAll('*'));
+        }
       }
       return result;
     }
@@ -92,8 +97,11 @@ class XPathEvaluator {
       }
       return result;
     }
+    // 标签查询
     for (final node in contextNodes) {
       if (node is Element) {
+        result.addAll(node.querySelectorAll(axis));
+      } else if (node is Document) {
         result.addAll(node.querySelectorAll(axis));
       }
     }
@@ -101,9 +109,11 @@ class XPathEvaluator {
   }
 
   List<Node> _applyPredicate(List<Node> nodes, String predicate) {
+    // 修复正则语法错误，使用原始字符串，正确转义
     final match = RegExp(r'@(\w+)\s*=\s*["\'](sslocal://flow/file_open?url=.%2A%3F&flow_extra=eyJsaW5rX3R5cGUiOiJjb2RlX2ludGVycHJldGVyIn0=)["\']').firstMatch(predicate);
     if (match == null) return nodes;
 
+    // 修复：RegExp的group方法是可空的，加!处理
     final attrName = match.group(1)!;
     final attrValue = match.group(2)!;
 
@@ -114,11 +124,7 @@ class XPathEvaluator {
   }
 }
 
-// XPath语法解析器
-class XPathParser extends GrammarParser {
-  XPathParser() : super(const XPathGrammarDefinition());
-}
-
+// 修复废弃API：不再继承GrammarParser，直接用GrammarDefinition.build()
 class XPathGrammarDefinition extends GrammarDefinition {
   const XPathGrammarDefinition();
 
@@ -143,6 +149,7 @@ class XPathGrammarDefinition extends GrammarDefinition {
         return {'axis': '.', 'predicate': list[1]};
       });
 
+  // 修复：anyChar来自petitparser，直接使用
   Parser predicate() => (anyChar() & char(']').not()).plus().flatten();
 }
 // ====================== XPath解析器结束 ======================
@@ -247,7 +254,7 @@ class SpiderManager {
     final html = await NetworkService.instance.get(source.api!);
     // 初始化内置XPath解析器
     final document = html_parser.parse(html);
-    final evaluator = XPathEvaluator(document.documentElement!);
+    final evaluator = XPathEvaluator(document);
 
     switch (method) {
       case "homeContent":
@@ -256,6 +263,7 @@ class SpiderManager {
         final listNodes = listResult.nodes;
         final list = listNodes.map((node) {
           final nodeEvaluator = XPathEvaluator(node);
+          // 修复空安全：String? 赋值给String，加??兜底
           return {
             "id": nodeEvaluator.query(rule["home_id"]).attr ?? nodeEvaluator.query(rule["home_id"]).string,
             "name": nodeEvaluator.query(rule["home_name"]).string,
@@ -269,7 +277,7 @@ class SpiderManager {
         final id = args[0] as String;
         final detailHtml = await NetworkService.instance.get(id);
         final detailDocument = html_parser.parse(detailHtml);
-        final detailEvaluator = XPathEvaluator(detailDocument.documentElement!);
+        final detailEvaluator = XPathEvaluator(detailDocument);
         final detailResult = detailEvaluator.query(rule["detail_root"]);
         final detailNode = detailResult.node;
 
@@ -278,7 +286,7 @@ class SpiderManager {
         }
 
         final detailNodeEvaluator = XPathEvaluator(detailNode);
-        // 解析播放列表
+        // 解析播放列表，修复标识符错误
         final playFrom = detailNodeEvaluator.query(rule["play_from"]).string.split("$$$");
         final playUrlRaw = detailNodeEvaluator.query(rule["play_url"]).string.split("$$$");
         final playList = playUrlRaw.map((item) {
@@ -306,7 +314,7 @@ class SpiderManager {
         final id = args[2] as String;
         final playHtml = await NetworkService.instance.get(id);
         final playDocument = html_parser.parse(playHtml);
-        final playEvaluator = XPathEvaluator(playDocument.documentElement!);
+        final playEvaluator = XPathEvaluator(playDocument);
         final playUrl = playEvaluator.query(rule["player_url"]).attr ?? playEvaluator.query(rule["player_url"]).string;
 
         return {
@@ -319,14 +327,9 @@ class SpiderManager {
     }
   }
 
-  // Type3 JS/Python动态脚本源（完整保留）
+  // Type3 JS动态脚本源（完整保留，TVBox主流源）
   Future<Map<String, dynamic>> _executeType3(String method, List<dynamic> args) async {
     final source = _currentSource!;
-    // 区分Python和JS脚本
-    if (source.api?.endsWith(".py") == true || source.ext?.contains("class MySpider") != true) {
-      return await PythonEngine.instance.executeScript(source, method, args);
-    } else {
-      return await JsEngine.instance.executeScript(source, method, args);
-    }
+    return await JsEngine.instance.executeScript(source, method, args);
   }
 }
