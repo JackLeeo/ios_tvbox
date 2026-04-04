@@ -11,42 +11,49 @@ class PythonEngine {
 
   Future<void> init() async {
     if (_isInitialized) return;
-    // 正确初始化PythonFFI（使用公开API，非测试专用）
-    await PythonFfi.initialize();
+    // 适配python_ffi 0.6.0 正确初始化API
+    await PythonFfi.instance.initialize();
     _isInitialized = true;
   }
 
   Future<dynamic> executeScript(SpiderSource source, String method, List<dynamic> args) async {
     if (!_isInitialized) await init();
 
-    final pythonModule = PythonModule();
-    // 加载爬虫脚本
-    if (source.ext?.isNotEmpty == true) {
-      await pythonModule.runString(source.ext!);
-    }
+    // 加载远程脚本
     if (source.api?.isNotEmpty == true) {
-      final networkService = NetworkService.instance;
-      final remoteScript = await networkService.get(source.api!);
-      await pythonModule.runString(remoteScript);
+      final remoteScript = await NetworkService.instance.get(source.api!);
+      PythonFfi.instance.runString(remoteScript);
+    }
+
+    // 加载本地脚本
+    if (source.ext?.isNotEmpty == true) {
+      PythonFfi.instance.runString(source.ext!);
     }
 
     // 执行目标方法
-    final argsStr = args.map((e) => jsonEncode(e)).join(',');
-    final result = await pythonModule.runString("""
+    final argsJson = args.map((e) => jsonEncode(e)).join(',');
+    final execCode = """
 import json
 spider = MySpider()
-result = spider.${method}(${argsStr})
+result = spider.${method}(${argsJson})
 print(json.dumps(result))
-""");
+""";
 
-    if (result.stderr.isNotEmpty) {
-      throw Exception("Python脚本执行错误: ${result.stderr}");
+    final execResult = PythonFfi.instance.runString(execCode);
+    if (execResult.stderr.isNotEmpty) {
+      throw Exception("Python脚本执行失败: ${execResult.stderr}");
     }
-    return jsonDecode(result.stdout);
+
+    try {
+      return jsonDecode(execResult.stdout);
+    } catch (e) {
+      throw Exception("Python返回数据解析失败: $e, 原始数据: ${execResult.stdout}");
+    }
   }
 
   Future<void> dispose() async {
-    PythonFfi.finalize();
+    // 适配python_ffi正确释放API
+    PythonFfi.instance.finalize();
     _isInitialized = false;
   }
 }
