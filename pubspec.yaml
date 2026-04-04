@@ -45,5 +45,5 @@ flutter:
     - assets/js/              # JS工具库
     - assets/images/          # 资源目录
     - assets/images/icon.png          # 应用图标（1024x1024像素）
-    - assets/images/launch_image.png   # 启动图（1920x1080像素）
-    - assets/images/default_poster.png # 默认视频封面（300x450像素）
+   # - assets/images/launch_image.png   # 启动图（1920x1080像素）
+   # - assets/images/default_poster.png # 默认视频封面（300x450像素）
