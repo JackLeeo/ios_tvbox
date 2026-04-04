@@ -4,20 +4,18 @@ import 'package:ios_tvbox/core/spider_manager.dart';
 
 class PlayerViewModel extends ChangeNotifier {
   late final Player player;
-  bool _isLoading = false;
-  String? _errorMessage;
-
-  bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
+  bool isLoading = false;
+  String? errorMessage;
 
   PlayerViewModel() {
     player = Player();
   }
 
-  // 初始化播放（修复setHttpHeaders错误，使用media_kit标准API设置请求头）
+  // 初始化播放（适配media_kit标准API）
   Future<void> initPlay(String flag, String id) async {
     _setLoading(true);
-    _errorMessage = null;
+    errorMessage = null;
+
     try {
       // 解析播放地址
       final result = await SpiderManager.instance.execute(
@@ -32,28 +30,47 @@ class PlayerViewModel extends ChangeNotifier {
         throw Exception("播放地址为空");
       }
 
-      // 正确设置播放地址和HTTP头（media_kit标准实现）
+      // media_kit标准构造函数
       await player.open(
-        Media.playable(
+        Media(
           url,
           httpHeaders: headers,
         ),
         play: true,
       );
     } catch (e) {
-      _errorMessage = e.toString();
-      debugPrint("播放初始化错误: $e");
+      errorMessage = e.toString();
+      debugPrint("播放初始化失败: $e");
     } finally {
       _setLoading(false);
     }
   }
 
-  void _setLoading(bool value) {
-    _isLoading = value;
+  // 播放/暂停
+  void togglePlay() {
+    if (player.state.playing) {
+      player.pause();
+    } else {
+      player.play();
+    }
     notifyListeners();
   }
 
-  // 释放播放器资源
+  // 调整进度
+  void seekTo(Duration position) {
+    player.seek(position);
+  }
+
+  // 调整倍速
+  void setSpeed(double speed) {
+    player.setRate(speed);
+  }
+
+  void _setLoading(bool value) {
+    isLoading = value;
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     player.dispose();
