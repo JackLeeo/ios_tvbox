@@ -1,6 +1,13 @@
-platform :ios, '12.0'  # 最低支持iOS 12.0（TrollStore兼容要求）
+# ios/Podfile（修正后）
+platform :ios, '12.0'
 use_frameworks!
+require_relative '../flutter/podhelper'  # 引入Flutter Podhelper（自动处理路径）
+
 target 'Runner' do
   use_frameworks!
-  pod 'Flutter', :path => ENV['FLUTTER_ROOT']  # 正确：通过环境变量获取Flutter路径
+  install_all_flutter_pods(flutter_application_path: '../..')  # Podhelper自动配置Flutter依赖
+end
+
+post_install do |installer|
+  flutter_post_install(installer) if defined?(flutter_post_install)
 end
