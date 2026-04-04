@@ -3,31 +3,45 @@ class VideoModel {
   final String name;
   final String pic;
   final String remark;
+  final String? year;
+  final String? area;
+  final String? lang;
+  final String? type;
+  final String? des;
   final String? content;
   final List<String>? playFrom;
   final List<List<String>>? playUrl;
+  final List<List<String>>? playList;
 
-  VideoModel({
+  // 兼容别名
+  String? get remarks => remark;
+
+  const VideoModel({
     required this.id,
     required this.name,
     required this.pic,
     this.remark = '',
+    this.year,
+    this.area,
+    this.lang,
+    this.type,
+    this.des,
     this.content,
     this.playFrom,
     this.playUrl,
+    this.playList,
   });
 
-  // 从JSON解析数据（修复语法错误和类型转换错误）
+  // 从JSON解析（兼容TVBox全字段）
   factory VideoModel.fromJson(Map<String, dynamic> json) {
-    // 处理播放地址的类型转换，兼容TVBox标准格式
+    // 解析播放地址
     List<List<String>>? parsedPlayUrl;
     if (json['vod_play_url'] != null) {
-      final rawPlayUrl = json['vod_play_url'] as List;
-      parsedPlayUrl = rawPlayUrl.map((item) {
+      final raw = json['vod_play_url'] as List;
+      parsedPlayUrl = raw.map((item) {
         if (item is List) {
           return item.map((e) => e.toString()).toList();
         }
-        // 兼容TVBox标准的#分隔播放地址格式
         return item.toString().split('#').map((e) => e.trim()).toList();
       }).toList();
     }
@@ -37,21 +51,31 @@ class VideoModel {
       name: json['name']?.toString() ?? json['vod_name']?.toString() ?? '',
       pic: json['pic']?.toString() ?? json['vod_pic']?.toString() ?? '',
       remark: json['remark']?.toString() ?? json['vod_remarks']?.toString() ?? '',
+      year: json['year']?.toString() ?? json['vod_year']?.toString(),
+      area: json['area']?.toString() ?? json['vod_area']?.toString(),
+      lang: json['lang']?.toString() ?? json['vod_lang']?.toString(),
+      type: json['type']?.toString() ?? json['vod_type']?.toString(),
+      des: json['des']?.toString() ?? json['vod_content']?.toString(),
       content: json['content']?.toString() ?? json['vod_content']?.toString(),
       playFrom: json['vod_play_from'] != null
           ? (json['vod_play_from'] as List).map((e) => e.toString()).toList()
           : null,
       playUrl: parsedPlayUrl,
+      playList: parsedPlayUrl,
     );
   }
 
-  // 转JSON格式
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'name': name,
       'pic': pic,
       'remark': remark,
+      'year': year,
+      'area': area,
+      'lang': lang,
+      'type': type,
+      'des': des,
       'content': content,
       'vod_play_from': playFrom,
       'vod_play_url': playUrl,
