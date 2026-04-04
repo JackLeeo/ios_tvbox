@@ -26,6 +26,9 @@ def flutter_root
   raise 'Could not find FLUTTER_ROOT from Generated.xcconfig'
 end
 
+# 加载Flutter的Pod辅助脚本，定义flutter_install_all_ios_pods等方法
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
 target 'Runner' do
   use_frameworks!
   use_modular_headers!
