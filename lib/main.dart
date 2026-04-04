@@ -23,7 +23,7 @@ void main() async {
   await JsEngine.instance.init();
   await PythonEngine.instance.init();
 
-  // 内置默认测试源
+  // 内置默认测试源（完整无截断）
   await SpiderManager.instance.addSource(SpiderSource(
     key: "default_test",
     name: "内置测试源",
@@ -74,4 +74,50 @@ class MySpider extends CatVodSpider {
             ? '这是一个开源测试视频，用于验证播放器功能' 
             : '世界上第一部开源电影',
           vod_play_from: ['默认线路'],
-          vod_play
+          vod_play_url: [
+            ['正片\$' + ids]
+          ]
+        }
+      ]
+    };
+  }
+  async playerContent(flag, id, vipFlags) {
+    return {
+      url: id,
+      header: {}
+    };
+  }
+}
+""",
+  ));
+
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => HomeViewModel()),
+      ],
+      child: MaterialApp(
+        title: 'TVBox Flutter',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          brightness: Brightness.dark,
+          useMaterial3: true,
+        ),
+        debugShowCheckedModeBanner: false,
+        home: const HomeView(),
+        routes: {
+          '/debug': (context) => const SourceDebugger(),
+          '/detail': (context) => const DetailView(videoId: ''),
+          '/player': (context) => const PlayerView(flag: '', id: '', title: ''),
+        },
+      ),
+    );
+  }
+}
