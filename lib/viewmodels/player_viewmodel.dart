@@ -32,7 +32,12 @@ class PlayerViewModel extends ChangeNotifier {
       
       // 开始播放
       if (_playUrl != null) {
-        await player.open(Media(_playUrl!, headers: _headers));
+        // 修复：兼容 media_kit 1.2.6 旧版本，移除不存在的 headers 命名参数
+        // 先设置播放器全局请求头，完整保留防盗链/鉴权头功能
+        if (_headers != null && _headers!.isNotEmpty) {
+          player.setHttpHeaders(_headers!);
+        }
+        await player.open(Media(_playUrl!));
       }
     } catch (e) {
       _error = e.toString();
