@@ -85,6 +85,16 @@
         <true/>
     </dict>
 
+<!-- 新增Node.js运行时网络权限配置 -->
+<key>NSAppTransportSecurity</key>
+<dict>
+    <key>NSAllowsArbitraryLoads</key>
+    <true/>
+    <key>NSAllowsArbitraryLoadsInWebContent</key>
+    <true/>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+</dict>
     <!-- 设备架构配置 -->
     <key>UIRequiredDeviceCapabilities</key>
     <array>
