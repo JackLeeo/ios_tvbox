@@ -1,116 +1,217 @@
-import 'package:quick_js/quick_js.dart';
+import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'dart:convert';
+import 'dart:async';
 import '../models/spider_source.dart';
 import './network_service.dart';
 
 class JsEngine {
-  JsRuntime? _runtime;
+  WebViewController? _webViewController;
   bool _isInitialized = false;
+  // JS-Dart异步请求映射表，处理http异步回调
+  final Map<String, Completer<dynamic>> _pendingRequests = {};
+  int _requestId = 0;
+  // 通道名常量
+  static const String _channelName = "tvbox_http";
 
+  // 单例模式，和原有接口完全一致
   static final JsEngine instance = JsEngine._internal();
   JsEngine._internal();
 
-  /// 初始化JS引擎，注入全局环境和http工具
+  /// 初始化JS运行环境，无头WebView后台加载，无UI侵入
   Future<void> init() async {
-    if (_isInitialized && _runtime != null) return;
+    if (_isInitialized && _webViewController != null) return;
 
-    // 创建JS运行时
-    _runtime = await JsRuntime.create();
-    // 全局变量兼容，适配TVBox JS脚本标准
-    await _runtime!.evaluate('''
-      var globalThis = this;
-      var window = globalThis;
-      // TVBox标准爬虫基类，所有自定义脚本继承此类
-      class CatVodSpider {
-        constructor() {}
-        async homeContent(filter) { return {}; }
-        async homeVideoContent() { return {}; }
-        async categoryContent(tid, pg, filter, extend) { return {}; }
-        async detailContent(ids) { return {}; }
-        async searchContent(wd, quick, pg) { return {}; }
-        async playerContent(flag, id, vipFlags) { return {}; }
-        async liveContent() { return {}; }
-      }
-    ''');
+    // 1. 创建无头WebView控制器，纯后台运行JS
+    _webViewController = WebViewController.fromPlatformCreationParams(
+      const PlatformWebViewControllerCreationParams(),
+    );
 
-    // 注册Dart http方法给JS调用，完全兼容原有http.get/http.post调用规范
-    await _runtime!.setGlobalFunction('DartHttpGet', (List<dynamic> args) async {
-      try {
-        final url = args[0] as String;
-        final headers = args.length > 1 ? Map<String, dynamic>.from(args[1]) : <String, dynamic>{};
-        return await NetworkService.instance.get(url, headers: headers);
-      } catch (e) {
-        throw Exception('HttpGet请求失败: ${e.toString()}');
-      }
-    });
+    // 2. 配置WebView基础参数
+    await _webViewController!.setJavaScriptMode(JavaScriptMode.unrestricted);
+    await _webViewController!.setBackgroundColor(Colors.transparent);
+    await _webViewController!.setUserAgent(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+    );
 
-    await _runtime!.setGlobalFunction('DartHttpPost', (List<dynamic> args) async {
-      try {
-        final url = args[0] as String;
-        final data = args.length > 1 ? args[1] : null;
-        final headers = args.length > 2 ? Map<String, dynamic>.from(args[2]) : <String, dynamic>{};
-        return await NetworkService.instance.post(url, data: data, headers: headers);
-      } catch (e) {
-        throw Exception('HttpPost请求失败: ${e.toString()}');
-      }
-    });
+    // 3. 注册JS-Dart通信通道，处理JS发起的http请求
+    await _webViewController!.addJavaScriptChannel(
+      _channelName,
+      onMessageReceived: (JavaScriptMessage message) async {
+        try {
+          final Map<String, dynamic> msgData = jsonDecode(message.message);
+          final String requestId = msgData['requestId'];
+          final String method = msgData['method'];
+          final List<dynamic> args = msgData['args'] ?? [];
 
-    // 注入全局http工具，和原有JS脚本完全兼容，无需修改任何JS代码
-    await _runtime!.evaluate('''
-      const http = {
-        get: async (url, headers) => {
-          return await DartHttpGet(url, headers || {});
-        },
-        post: async (url, data, headers) => {
-          return await DartHttpPost(url, data, headers || {});
+          dynamic result;
+          // 处理JS发起的http请求
+          if (method == 'get') {
+            final url = args[0] as String;
+            final headers = args.length > 1 ? Map<String, dynamic>.from(args[1]) : <String, dynamic>{};
+            result = await NetworkService.instance.get(url, headers: headers);
+          } else if (method == 'post') {
+            final url = args[0] as String;
+            final data = args.length > 1 ? args[1] : null;
+            final headers = args.length > 2 ? Map<String, dynamic>.from(args[2]) : <String, dynamic>{};
+            result = await NetworkService.instance.post(url, data: data, headers: headers);
+          }
+
+          // 把请求结果返回给JS
+          await _webViewController!.runJavaScript("""
+            window._tvboxHttpCallback('$requestId', true, ${jsonEncode(result)});
+          """);
+        } catch (e) {
+          // 把错误返回给JS
+          final Map<String, dynamic> msgData = jsonDecode(message.message);
+          final String requestId = msgData['requestId'];
+          await _webViewController!.runJavaScript("""
+            window._tvboxHttpCallback('$requestId', false, '${e.toString().replaceAll("'", "\\'")}');
+          """);
         }
-      };
-    ''');
+      },
+    );
+
+    // 4. 加载空白HTML，初始化JS全局环境（TVBox标准兼容）
+    final initHtml = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>TVBox JS Runtime</title>
+    </head>
+    <body>
+      <script type="text/javascript">
+        // 全局变量兼容，和TVBox JS脚本标准完全一致
+        var globalThis = window;
+        var module = { exports: {} };
+        var exports = module.exports;
+
+        // TVBox标准爬虫基类，所有自定义脚本继承此类
+        class CatVodSpider {
+          constructor() {}
+          async homeContent(filter) { return {}; }
+          async homeVideoContent() { return {}; }
+          async categoryContent(tid, pg, filter, extend) { return {}; }
+          async detailContent(ids) { return {}; }
+          async searchContent(wd, quick, pg) { return {}; }
+          async playerContent(flag, id, vipFlags) { return {}; }
+          async liveContent() { return {}; }
+        }
+
+        // 待处理的http请求回调映射
+        window._tvboxHttpPending = {};
+        // http请求完成回调
+        window._tvboxHttpCallback = function(requestId, success, data) {
+          const pending = window._tvboxHttpPending[requestId];
+          if (pending) {
+            delete window._tvboxHttpPending[requestId];
+            if (success) pending.resolve(data);
+            else pending.reject(data);
+          }
+        };
+
+        // 注入全局http工具，和原有JS脚本100%兼容，无需修改任何JS代码
+        const http = {
+          get: async function(url, headers) {
+            return new Promise((resolve, reject) => {
+              const requestId = (++window._tvboxRequestId || 1).toString();
+              window._tvboxHttpPending[requestId] = { resolve, reject };
+              $_channelName.postMessage(JSON.stringify({
+                requestId: requestId,
+                method: 'get',
+                args: [url, headers || {}]
+              }));
+            });
+          },
+          post: async function(url, data, headers) {
+            return new Promise((resolve, reject) => {
+              const requestId = (++window._tvboxRequestId || 1).toString();
+              window._tvboxHttpPending[requestId] = { resolve, reject };
+              $_channelName.postMessage(JSON.stringify({
+                requestId: requestId,
+                method: 'post',
+                args: [url, data, headers || {}]
+              }));
+            });
+          }
+        };
+
+        // 全局请求ID计数器
+        window._tvboxRequestId = 0;
+
+        // 全局执行JS脚本的方法，供Dart侧调用
+        window.tvboxExecuteScript = async function(scriptCode) {
+          try {
+            const result = await eval(scriptCode);
+            return JSON.stringify({ success: true, data: result });
+          } catch (e) {
+            return JSON.stringify({ success: false, error: e.toString() });
+          }
+        };
+      </script>
+    </body>
+    </html>
+    """.replaceAll("$_channelName", _channelName);
+
+    // 加载初始化HTML，完成JS环境准备
+    await _webViewController!.loadHtmlString(initHtml);
+    // 等待页面加载完成，确保JS环境就绪
+    await _webViewController!.waitForFirstPaint();
 
     _isInitialized = true;
   }
 
-  /// 执行爬虫脚本方法，完全兼容原有调用规范，上层代码零改动
+  /// 执行爬虫脚本方法，和原有接口完全一致，上层代码零改动
   Future<dynamic> executeScript(SpiderSource source, String method, List<dynamic> args) async {
-    if (!_isInitialized || _runtime == null) await init();
+    if (!_isInitialized || _webViewController == null) await init();
 
     try {
-      // 加载远程JS脚本
+      // 1. 加载远程JS脚本
       if (source.api?.isNotEmpty == true) {
         final remoteScript = await NetworkService.instance.get(source.api!);
-        await _runtime!.evaluate(remoteScript);
+        await _webViewController!.runJavaScript(remoteScript);
       }
 
-      // 加载本地JS脚本（ext字段）
+      // 2. 加载本地JS脚本（ext字段）
       if (source.ext?.isNotEmpty == true) {
-        await _runtime!.evaluate(source.ext!);
+        await _webViewController!.runJavaScript(source.ext!);
       }
 
-      // 序列化参数，适配JS方法入参
+      // 3. 序列化参数，执行目标爬虫方法
       final argsJson = args.map((e) => jsonEncode(e)).join(',');
-      // 执行目标异步方法，自动等待Promise完成
-      final jsCode = '''
+      final execCode = """
         (async () => {
           const spider = new MySpider();
-          const result = await spider.$method($argsJson);
-          return JSON.stringify(result);
+          return await spider.$method($argsJson);
         })();
-      ''';
+      """;
 
-      final result = await _runtime!.evaluate(jsCode);
-      // 解析返回结果
-      return jsonDecode(result.toString());
+      // 4. 执行JS代码，获取返回结果
+      final jsResult = await _webViewController!.runJavaScriptReturningResult("""
+        window.tvboxExecuteScript(${jsonEncode(execCode)})
+      """);
+
+      // 5. 解析返回结果
+      final Map<String, dynamic> resultData = jsonDecode(jsResult.toString());
+      if (resultData['success'] != true) {
+        throw Exception(resultData['error'] ?? 'JS脚本执行失败');
+      }
+
+      return resultData['data'];
     } catch (e) {
-      throw Exception("JS脚本执行失败: ${e.toString()}");
+      throw Exception("JS脚本执行异常: ${e.toString()}");
     }
   }
 
-  /// 释放JS引擎资源
+  /// 释放资源，和原有接口完全一致
   Future<void> dispose() async {
-    if (_runtime != null) {
-      await _runtime!.dispose();
-      _runtime = null;
+    if (_webViewController != null) {
+      await _webViewController!.clearCache();
+      await _webViewController!.clearLocalStorage();
+      _webViewController = null;
     }
+    _pendingRequests.clear();
     _isInitialized = false;
   }
 }
