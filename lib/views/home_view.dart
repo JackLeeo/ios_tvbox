@@ -26,7 +26,7 @@ class _HomeViewState extends State<HomeView> {
     });
   }
 
-  /// 【优化】严格按顺序初始化，确保JS引擎完全就绪后再执行业务逻辑
+  /// 【优化】严格串行初始化，避免并发执行导致的JS引擎异常
   Future<void> _initAppData() async {
     if (_isInitDone) return;
     try {
@@ -34,8 +34,11 @@ class _HomeViewState extends State<HomeView> {
         _isInitLoading = true;
       });
 
-      // 第一步：先初始化JS引擎，确保完全就绪
+      // 第一步：预初始化JS引擎，确保环境就绪
+      debugPrint('🚀 开始预初始化JS引擎');
       await JsEngine.instance.ensureInitialized();
+      debugPrint('✅ JS引擎预初始化完成');
+
       // 第二步：初始化爬虫管理器
       await SpiderManager.instance.init();
       // 第三步：添加内置测试源
@@ -67,9 +70,10 @@ class _HomeViewState extends State<HomeView> {
     }
   }
 
-  /// 内置测试源，优化JS脚本兼容性
+  /// 内置测试源
   Future<void> _addDefaultTestSource() async {
     if (SpiderManager.instance.hasSource) return;
+    debugPrint('📥 开始添加内置测试源');
     await SpiderManager.instance.addSource(const SpiderSource(
       key: "default_test",
       name: "内置测试源",
@@ -79,6 +83,7 @@ class _HomeViewState extends State<HomeView> {
 // 内置测试源脚本
 window.MySpider = class MySpider extends CatVodSpider {
   async homeContent(filter) {
+    console.log('开始执行homeContent');
     return {
       list: [
         {
@@ -146,6 +151,7 @@ window.MySpider = class MySpider extends CatVodSpider {
 }
 """,
     ));
+    debugPrint('✅ 内置测试源添加完成');
   }
 
   @override
@@ -163,12 +169,29 @@ window.MySpider = class MySpider extends CatVodSpider {
               );
             },
           ),
+          // 【新增】手动重试按钮，方便调试
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () async {
+              await JsEngine.instance.dispose();
+              setState(() {
+                _isInitDone = false;
+              });
+              _initAppData();
+            },
+          ),
         ],
       ),
       body: _isInitLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: () => Provider.of<HomeViewModel>(context, listen: false).refresh(),
+              onRefresh: () async {
+                await JsEngine.instance.dispose();
+                setState(() {
+                  _isInitDone = false;
+                });
+                await _initAppData();
+              },
               child: Consumer<HomeViewModel>(
                 builder: (context, vm, child) {
                   if (vm.isLoading && vm.videoList.isEmpty) {
