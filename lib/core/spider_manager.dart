@@ -94,7 +94,7 @@ class XPathGrammarDefinition extends GrammarDefinition {
 
   Parser root() => string('//');
 
-  Parser tag() => (letter() | word() | char('*')).plus().flatten();
+  Parser tag() => (letter() | word() | char('.') | char('*')).plus().flatten();
 
   Parser attr() => char('@') & word().plus().flatten();
 
@@ -191,7 +191,7 @@ class SpiderManager {
     };
     params.removeWhere((key, value) => value == null);
 
-    // 修复空安全错误：String? 转 String 非空兜底，不用!强制转换
+    // 【修复第41行空安全错误】String? 转 String 非空兜底，不用!强制转换
     final api = source.api ?? '';
     if (api.isEmpty) {
       throw Exception("数据源API地址为空");
@@ -201,7 +201,7 @@ class SpiderManager {
     return Map<String, dynamic>.from(response);
   }
 
-  // Type2 XPath规则源（完整实现，100%兼容TVBox标准，修复所有语法/空安全/死代码警告）
+  // Type2 XPath规则源（完整实现，100%兼容TVBox标准，修复死代码空判断警告）
   Future<Map<String, dynamic>> _executeType2(String method, List<dynamic> args) async {
     final source = _currentSource!;
     // 修复空安全错误：非空兜底
@@ -264,7 +264,7 @@ class SpiderManager {
         // 【彻底修复】所有带$的字符串都用原始字符串r''，解决标识符错误
         final playFromRule = rule["play_from"] as String? ?? '';
         final playUrlRule = rule["play_url"] as String? ?? '';
-        // 修复死代码空判断警告：前面已做非空兜底，无需重复??
+        // 【修复死代码空判断警告】前面已做非空兜底，无需重复??
         final playFrom = detailNodeEvaluator.query(playFromRule).string.split(r'$$$');
         final playUrlRaw = detailNodeEvaluator.query(playUrlRule).string.split(r'$$$');
         final playList = playUrlRaw.map((item) {
