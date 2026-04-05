@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
     <key>method</key>
-    <string>development</string>  <!-- 导出方式为开发版（无签名） -->
+    <string>debugging</string>  <!-- 修复弃用警告：替换已废弃的development为苹果官方推荐的debugging，适配无签名打包 -->
     <key>teamID</key>
-    <string></string>  <!-- 留空（无签名） -->
+    <string>0000000000</string>  <!-- 修复核心报错：占位非空值，满足Xcode校验要求，无签名无需真实团队ID -->
     <key>compileBitcode</key>
     <false/>  <!-- 关闭Bitcode编译（减少包体积） -->
     <key>uploadBitcode</key>
@@ -15,12 +15,7 @@
     <key>signingStyle</key>
     <string>manual</string>  <!-- 手动签名（无签名） -->
     <key>signingCertificate</key>
-    <string></string>  <!-- 留空（无签名） -->
-    <key>provisioningProfiles</key>
-    <dict>
-        <key>com.yourname.tvbox</key>  <!-- 与`ios/Runner/Info.plist`的`CFBundleIdentifier`一致（替换为你的Bundle ID） -->
-        <string></string>  <!-- 留空（无签名） -->
-    </dict>
+    <string>-</string>  <!-- 修复：无签名占位符，避免空字符串校验报错 -->
     <key>stripSwiftSymbols</key>
     <true/>  <!-- 移除Swift符号（减少包体积） -->
     <key>thinning</key>
