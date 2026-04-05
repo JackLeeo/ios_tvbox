@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- 基础核心配置 -->
+    <!-- Flutter引擎必需的基础核心配置 -->
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleExecutable</key>
@@ -16,19 +16,19 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>$(FLUTTER_BUILD_NAME)</string>
+    <string>1.0.0</string>
     <key>CFBundleVersion</key>
-    <string>$(FLUTTER_BUILD_NUMBER)</string>
+    <string>1</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
     
-    <!-- 关键修复1：Flutter引擎必需的启动页配置，解决启动衔接白屏 -->
+    <!-- Flutter启动必需配置，解决启动衔接问题 -->
     <key>UILaunchStoryboardName</key>
     <string>LaunchScreen</string>
     <key>UIMainStoryboardFile</key>
     <string>Main</string>
     
-    <!-- 关键修复2：屏幕方向配置，TVBox适配横屏，避免方向错乱导致白屏 -->
+    <!-- TVBox横屏适配，强制横屏，避免方向错乱 -->
     <key>UISupportedInterfaceOrientations</key>
     <array>
         <string>UIInterfaceOrientationLandscapeLeft</string>
@@ -40,4 +40,58 @@
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
     
-    <!-- 关键修复3：iOS 13+必需的Scene配置，避免引擎...
+    <!-- iOS 13+ 必需的Scene配置，完整闭合无语法错误 -->
+    <key>UIApplicationSceneManifest</key>
+    <dict>
+        <key>UIApplicationSupportsMultipleScenes</key>
+        <false/>
+        <key>UISceneConfigurations</key>
+        <dict>
+            <key>UIWindowSceneSessionRoleApplication</key>
+            <array>
+                <dict>
+                    <key>UISceneConfigurationName</key>
+                    <string>Default Configuration</string>
+                    <key>UISceneDelegateClassName</key>
+                    <string>FlutterSceneDelegate</string>
+                    <key>UISceneStoryboardFile</key>
+                    <string>Main</string>
+                </dict>
+            </array>
+        </dict>
+    </dict>
+    
+    <!-- TrollStore 兼容必需配置 -->
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+        <string>trollstore</string>
+    </array>
+    <key>UIFileSharingEnabled</key>
+    <true/>
+    <key>LSSupportsOpeningDocumentsInPlace</key>
+    <true/>
+    
+    <!-- 网络权限全量配置，允许HTTP/HTTPS任意请求，解决视频/图片加载失败 -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+        <key>NSAllowsArbitraryLoadsInWebContent</key>
+        <true/>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+    </dict>
+    
+    <!-- 设备架构配置，仅支持arm64，适配TrollStore支持的iOS设备 -->
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>arm64</string>
+    </array>
+    
+    <!-- 后台音频播放权限，适配播放器后台播放 -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>audio</string>
+    </array>
+</dict>
+</plist>
