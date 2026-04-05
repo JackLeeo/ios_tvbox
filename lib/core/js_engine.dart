@@ -29,7 +29,7 @@ class JsEngine {
     await init();
   }
 
-  /// 【完全重构】适配iOS无签名环境的初始化逻辑
+  /// 【完全适配webview_flutter 4.13.1】初始化逻辑
   Future<void> init({int retryCount = 0}) async {
     // 最大重试3次，避免无限循环
     if (retryCount > 3) {
@@ -44,11 +44,21 @@ class JsEngine {
     final Completer<void> pageLoadedCompleter = Completer<void>();
 
     try {
-      // 1. 【iOS核心修复】先注册所有通道，再创建WebView，确保HTML加载时通道已存在
-      final List<JavaScriptChannel> channels = [
-        // JS执行结果返回通道
-        JavaScriptChannel(
-          name: _execChannelName,
+      // 1. 【修复】创建WebViewController，完全适配4.13.1版本API
+      _webViewController = WebViewController()
+        // 强制开启JavaScript，必须配置
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        // 背景透明，无头运行
+        ..setBackgroundColor(Colors.transparent)
+        // 【iOS适配】标准Safari UA，绕过无签名环境权限拦截
+        ..setUserAgent(
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+        )
+        // 【修复】4.13.1版本正确的媒体自动播放配置
+        ..setMediaPlaybackRequiresUserGesture(false)
+        // 【修复】逐个添加JS通道，适配4.13.1版本API（无批量添加方法）
+        ..addJavaScriptChannel(
+          _execChannelName,
           onMessageReceived: (JavaScriptMessage message) {
             try {
               final Map<String, dynamic> result = jsonDecode(message.message);
@@ -68,10 +78,9 @@ class JsEngine {
               debugPrint('❌ 执行结果解析失败: $e');
             }
           },
-        ),
-        // HTTP请求通道
-        JavaScriptChannel(
-          name: _httpChannelName,
+        )
+        ..addJavaScriptChannel(
+          _httpChannelName,
           onMessageReceived: (JavaScriptMessage message) async {
             try {
               final Map<String, dynamic> msgData = jsonDecode(message.message);
@@ -109,24 +118,8 @@ class JsEngine {
               await _webViewController?.runJavaScript(jsCode);
             }
           },
-        ),
-      ];
-
-      // 2. 创建WebView控制器，【iOS专属优化】全量放开JS权限
-      _webViewController = WebViewController()
-        // 强制开启JavaScript，iOS端显式声明
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        // 背景透明，无头运行
-        ..setBackgroundColor(Colors.transparent)
-        // 【iOS适配】标准Safari UA，绕过无签名环境权限拦截
-        ..setUserAgent(
-          "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
         )
-        // 【iOS修复】允许媒体自动播放，无用户交互也能执行JS
-        ..setMediaPlaybackRequiresUserGesture(false)
-        // 注册所有通道
-        ..addJavaScriptChannels(channels)
-        // 导航监听
+        // 导航监听配置
         ..setNavigationDelegate(
           NavigationDelegate(
             onPageFinished: (String url) async {
@@ -150,7 +143,7 @@ class JsEngine {
         );
 
       // 3. 【第一阶段】先加载极简HTML，验证JS基础执行能力
-      final minHtml = """
+      const minHtml = """
       <!DOCTYPE html>
       <html>
       <head><meta charset="utf-8"></head>
@@ -167,7 +160,7 @@ class JsEngine {
       // 等待HTML加载完成
       await pageLoadedCompleter.future.timeout(const Duration(seconds: 10));
 
-      // 4. 【iOS核心修复】循环检测JS上下文是否真正就绪，最多等待5秒
+      // 4. 循环检测JS上下文是否真正就绪，最多等待5秒
       bool jsReady = false;
       int checkCount = 0;
       while (!jsReady && checkCount < 50) {
@@ -310,7 +303,7 @@ class JsEngine {
       await _webViewController!.loadHtmlString(fullEnvHtml);
       await envLoadedCompleter.future.timeout(const Duration(seconds: 10));
 
-      // 6. 【最终验证】循环检测核心执行函数是否就绪
+      // 6. 循环检测核心执行函数是否就绪
       bool envReady = false;
       int envCheckCount = 0;
       while (!envReady && envCheckCount < 50) {
