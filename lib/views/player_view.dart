@@ -22,8 +22,8 @@ class PlayerView extends StatefulWidget {
 
 class _PlayerViewState extends State<PlayerView> {
   // 播放器控制器，延迟初始化
-  Player? _player;
-  VideoController? _videoController;
+  late final Player _player;
+  late final VideoController _videoController;
   bool _isInitLoading = true;
   String? _errorMsg;
 
@@ -59,23 +59,22 @@ class _PlayerViewState extends State<PlayerView> {
         throw Exception("未获取到播放地址");
       }
 
-      // 初始化播放器
+      // 【修复】1.x版本media_kit初始化写法
       _player = Player(
         configuration: const PlayerConfiguration(
           bufferSize: 32 * 1024 * 1024, // 32MB缓冲
         ),
       );
-      _videoController = VideoController(_player!);
+      _videoController = VideoController(_player);
 
-      // 设置播放地址和请求头
-      await _player!.setMedia(
+      // 【修复】1.x版本用open()方法，替代高版本的setMedia，同时设置自动播放
+      await _player.open(
         Media(
           playUrl,
           httpHeaders: headers,
         ),
+        play: true, // 直接自动播放，无需单独调用play()
       );
-      // 自动播放
-      await _player!.play();
 
       setState(() {
         _isInitLoading = false;
@@ -91,9 +90,8 @@ class _PlayerViewState extends State<PlayerView> {
 
   @override
   void dispose() {
-    // 释放播放器资源
-    _player?.dispose();
-    _videoController?.dispose();
+    // 【修复】1.x版本只需释放Player，VideoController随Player自动释放，无需单独dispose
+    _player.dispose();
     super.dispose();
   }
 
@@ -158,7 +156,7 @@ class _PlayerViewState extends State<PlayerView> {
 
     // 播放器界面
     return Video(
-      controller: _videoController!,
+      controller: _videoController,
       controls: MaterialVideoControls,
       fit: BoxFit.contain,
     );
