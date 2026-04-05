@@ -1,18 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.yourname.tvbox"> <!-- 替换为你的包名（与Bundle ID一致） -->
+    xmlns:tools="http://schemas.android.com/tools"
+    <!-- 请将下面的包名替换为你自己的项目包名 -->
+    package="com.example.ios_tvbox">
 
-    <!-- 网络权限 -->
+    <!-- 核心权限：网络访问权限，必须添加，否则所有HTTP请求失败 -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 可选：网络状态监听权限，用于优化播放体验 -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- 可选：唤醒锁权限，防止视频播放时屏幕熄灭 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- 应用核心配置 -->
     <application
-        android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher" <!-- 应用图标（需放在mipmap目录） -->
         android:label="TVBox Flutter"
-        android:usesCleartextTraffic="true" <!-- 允许明文网络请求（如HTTP源） -->
-        android:requestLegacyExternalStorage="true" <!-- 兼容旧存储权限（Android 10+） -->
-        android:theme="@style/LaunchTheme">
-        
+        android:icon="@mipmap/ic_launcher"
+        <!-- 核心修复：允许明文HTTP请求，解决Android 9+ HTTP链接无法访问问题 -->
+        android:usesCleartextTraffic="true"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:hardwareAccelerated="true"
+        android:largeHeap="true"
+        android:supportsRtl="true"
+        android:theme="@style/LaunchTheme"
+        tools:targetApi="31">
+
+        <!-- 主Activity配置，Flutter应用入口 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -21,11 +34,17 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            
+
+            <!-- 应用启动入口，必须保留 -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Flutter 引擎必备配置，不能删除 -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
     </application>
 </manifest>
