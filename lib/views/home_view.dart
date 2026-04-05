@@ -4,6 +4,7 @@ import '../viewmodels/home_viewmodel.dart';
 import './source_debugger.dart';
 import './detail_view.dart';
 import '../core/spider_manager.dart';
+import '../core/js_engine.dart';
 import '../models/spider_source.dart';
 
 class HomeView extends StatefulWidget {
@@ -25,6 +26,7 @@ class _HomeViewState extends State<HomeView> {
     });
   }
 
+  /// 【优化】严格按顺序初始化，确保JS引擎完全就绪后再执行业务逻辑
   Future<void> _initAppData() async {
     if (_isInitDone) return;
     try {
@@ -32,10 +34,16 @@ class _HomeViewState extends State<HomeView> {
         _isInitLoading = true;
       });
 
+      // 第一步：先初始化JS引擎，确保完全就绪
+      await JsEngine.instance.ensureInitialized();
+      // 第二步：初始化爬虫管理器
       await SpiderManager.instance.init();
+      // 第三步：添加内置测试源
       await _addDefaultTestSource();
-      await Future.delayed(const Duration(milliseconds: 300));
+      // 第四步：等待环境稳定
+      await Future.delayed(const Duration(milliseconds: 200));
 
+      // 第五步：加载首页数据
       if (mounted) {
         await Provider.of<HomeViewModel>(context, listen: false).loadHomeData();
       }
@@ -59,7 +67,7 @@ class _HomeViewState extends State<HomeView> {
     }
   }
 
-  /// 【修复】优化JS脚本，彻底避免语法错误
+  /// 内置测试源，优化JS脚本兼容性
   Future<void> _addDefaultTestSource() async {
     if (SpiderManager.instance.hasSource) return;
     await SpiderManager.instance.addSource(const SpiderSource(
@@ -68,7 +76,7 @@ class _HomeViewState extends State<HomeView> {
       type: 3,
       api: "",
       ext: """
-// 内置测试源脚本，兼容iOS JS引擎
+// 内置测试源脚本
 window.MySpider = class MySpider extends CatVodSpider {
   async homeContent(filter) {
     return {
