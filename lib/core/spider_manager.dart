@@ -15,7 +15,6 @@ class XPathResult {
   XPathResult(this.nodes, this.string);
 
   Node? get node => nodes.isNotEmpty ? nodes.first : null;
-  // 修复点1：空安全+防运行时报错，避免attributes为空时调用first抛出异常
   String? get attr => node?.attributes.values.isNotEmpty == true ? node!.attributes.values.first : null;
 }
 
@@ -29,13 +28,11 @@ class XPathEvaluator {
     final result = parser.parse(xpath);
     if (result is Failure) return XPathResult([], '');
 
-    // 修复点2：核心修复CI报错的String?类型不匹配问题，把dynamic类型的解析结果安全转为非空String
     final String queryStr = result.value is String ? result.value as String : '';
     final nodes = _executeQuery(queryStr, [_rootNode]);
     final stringValue = nodes.isNotEmpty
         ? nodes.first is Text
             ? (nodes.first as Text).data
-            // 修复点3：补充空安全兜底，避免text为null时类型不匹配
             : nodes.first.text ?? ''
         : '';
     return XPathResult(nodes, stringValue);
@@ -102,9 +99,8 @@ class SpiderManager {
   SpiderSource? get currentSource => _currentSource;
   bool get hasSource => _sourceList.isNotEmpty && _currentSource != null;
 
-  Future<void> init() async {
-    // 空实现，兼容main.dart初始化调用
-  }
+  // 空初始化，兼容main.dart调用
+  Future<void> init() async {}
 
   Future<void> addSource(SpiderSource source) async {
     _sourceList.removeWhere((e) => e.key == source.key);
@@ -113,7 +109,6 @@ class SpiderManager {
   }
 
   void setCurrentSource(String key) {
-    // 补充兜底，避免找不到数据源时抛出运行时异常，不影响原有逻辑
     final t = _sourceList.firstWhere((e) => e.key == key, orElse: () => throw Exception("未找到key为$key的数据源"));
     _currentSource = t;
   }
@@ -135,12 +130,11 @@ class SpiderManager {
     }
   }
 
-  // 修复：统一字段格式，兼容vod_前缀和无前缀字段，确保VideoModel解析正常
+  // 统一字段兼容，解决测试源数据解析问题
   Future<List<VideoModel>> getHomeContent({bool filter = false}) async {
     final r = await execute("homeContent", [filter]);
     final list = r['list'] as List;
     return list.map((e) {
-      // 兼容两种字段格式，解决解析失败问题
       Map<String, dynamic> jsonMap = Map<String, dynamic>.from(e);
       jsonMap['id'] = jsonMap['id'] ?? jsonMap['vod_id'];
       jsonMap['name'] = jsonMap['name'] ?? jsonMap['vod_name'];
@@ -170,12 +164,10 @@ class SpiderManager {
     }).toList();
   }
 
-  // Type1 已保留你原有安全兜底逻辑，无额外改动
   Future<Map<String, dynamic>> _executeType1(String method, List<dynamic> args) async {
     final source = _currentSource!;
     final Map<String, dynamic> params = {};
 
-    // 终极安全非空转换，彻底消灭编译Error
     final safeApi = source.api ?? '';
     if (safeApi.isEmpty) {
       throw Exception("数据源API地址不能为空");
@@ -190,7 +182,6 @@ class SpiderManager {
     if (ext.isEmpty) {
       throw Exception("XPath规则为空");
     }
-    // 修复点4：避免空字符串jsonDecode抛出异常，不影响原有规则解析
     final rule = jsonDecode(ext);
     final api = source.api ?? '';
     if (api.isEmpty) {
