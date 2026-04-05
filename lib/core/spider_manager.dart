@@ -112,7 +112,7 @@ class SpiderManager {
   void removeSource(String key) {
     _sourceList.removeWhere((e) => e.key == key);
     if (_currentSource?.key == key) {
-      _currentSource = _sourceList.isNotEmpty ? _sourceList.first : null;
+      _currentSource = _sourceList.firstOrNull;
     }
   }
 
@@ -144,32 +144,30 @@ class SpiderManager {
     return list.map((e) => VideoModel.fromJson(e)).toList();
   }
 
-  // Type1 修复第37行 String? -> String 致命报错
+  // Type1 核心修复第37行 String? -> String 强安全兜底
   Future<Map<String, dynamic>> _executeType1(String method, List<dynamic> args) async {
     final source = _currentSource!;
     final Map<String, dynamic> params = {};
 
-    // 非空兜底强转为合法String，彻底消除类型不匹配error
-    final safeApiUrl = source.api ?? '';
-    if (safeApiUrl.isEmpty) {
+    // 终极安全非空转换，彻底消灭编译Error
+    final safeApi = source.api ?? '';
+    if (safeApi.isEmpty) {
       throw Exception("数据源API地址不能为空");
     }
-
-    final response = await NetworkService.instance.get(safeApiUrl, queryParameters: params);
+    final response = await NetworkService.instance.get(safeApi, queryParameters: params);
     return Map<String, dynamic>.from(response);
   }
 
-  // Type2 规范花括号、清理冗余判空警告
   Future<Map<String, dynamic>> _executeType2(String method, List<dynamic> args) async {
     final source = _currentSource!;
     final ext = source.ext ?? '';
     if (ext.isEmpty) {
-      throw Exception("XPath规则配置为空");
+      throw Exception("XPath规则为空");
     }
     final rule = jsonDecode(ext);
     final api = source.api ?? '';
     if (api.isEmpty) {
-      throw Exception("XPath数据源接口地址不能为空");
+      throw Exception("接口地址不能为空");
     }
 
     final html = await NetworkService.instance.get(api);
@@ -203,7 +201,7 @@ class SpiderManager {
         final detailRootRule = rule["detail_root"] ?? '';
         final detailNode = detailEva.query(detailRootRule).node;
         if (detailNode == null) {
-          throw Exception("未匹配到详情根节点数据");
+          throw Exception("未找到详情节点");
         }
 
         final dnEva = XPathEvaluator(detailNode);
@@ -249,7 +247,7 @@ class SpiderManager {
         return {"url": playUrl, "header": {}};
 
       default:
-        throw Exception("XPath源暂不支持当前调用方法:$method");
+        throw Exception("XPath源暂不支持当前方法");
     }
   }
 
