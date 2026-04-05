@@ -32,6 +32,9 @@ dependencies:
   crypto: ^3.0.5
   # 日期处理（补全缺失依赖）
   intl: ^0.20.2
+   # 新增：Flutter内嵌Node.js运行时核心库
+  flutter_nodejs: ^0.1.7
+  # 保留你现有的其他依赖（provider、media_kit、html等）
 
 dev_dependencies:
   flutter_test:
