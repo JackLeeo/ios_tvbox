@@ -1,4 +1,4 @@
-name: Build iOS TVBox Release
+name: Build iOS TVBox Release (TrollStore专用无签名版)
 on:
   push:
     branches: [ main ]
@@ -7,13 +7,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-ios-unsigned:
+  build-ios-trollstore-unsigned:
     runs-on: macos-14
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: 锁定Xcode稳定版本（规避版本兼容崩溃）
+      - name: 锁定Xcode稳定兼容版本（彻底规避版本兼容问题）
         run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
 
       - name: Setup Flutter SDK
@@ -23,12 +23,12 @@ jobs:
           channel: stable
           cache: false # 关闭缓存，彻底避免旧缓存污染
 
-      - name: 【关键预检查】Dart静态分析（提前发现所有编译错误）
+      - name: 【关键预检查】Dart静态分析（提前发现编译错误）
         run: |
           flutter pub get
-          flutter analyze --no-fatal-infos --no-fatal-warnings # 只拦截致命错误
+          flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: 【强制彻底清理】全量清理所有构建缓存（解决缓存污染导致的崩溃）
+      - name: 【强制全量清理】彻底清除所有构建缓存（解决缓存污染）
         run: |
           flutter clean
           rm -rf ios/Pods
@@ -38,59 +38,48 @@ jobs:
           rm -rf build
           rm -rf ~/Library/Developer/Xcode/DerivedData/*
 
-      - name: 重新安装依赖
+      - name: 重新安装项目依赖
         run: |
           flutter pub get
           cd ios && pod deintegrate && pod install --repo-update
 
-      - name: 【关键前置步骤】Flutter无签名预编译（彻底关闭Flutter层面签名校验）
-        run: flutter build ios --release --no-codesign --config-only
+      - name: 【核心无签名构建】Flutter直接编译无签名APP（彻底绕开Xcode签名校验）
+        run: flutter build ios --release --no-codesign --verbose
 
-      - name: Xcode Archive 无签名归档（全链路关闭签名，避免产物损坏）
+      - name: 【校验核心产物】确认无签名APP构建成功
         run: |
-          cd ios
-          xcodebuild archive \
-            -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -destination generic/platform=iOS \
-            -archivePath build/Runner.xcarchive \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            DEVELOPMENT_TEAM="" \
-            CODE_SIGN_ENTITLEMENTS="" \
-            CODE_SIGNING_REQUIRED_FOR_PRODUCT_TYPE=NO
-
-      - name: 【归档校验】检查归档产物是否有效（提前发现损坏文件）
-        run: |
-          if [ -d "ios/build/Runner.xcarchive" ]; then
-            echo "✅ 归档文件生成成功，无损坏"
+          if [ -d "build/ios/iphoneos/Runner.app" ]; then
+            echo "✅ 无签名APP构建成功，产物有效"
+            ls -la build/ios/iphoneos/Runner.app
           else
-            echo "❌ 归档文件生成失败，提前终止流程"
+            echo "❌ 无签名APP构建失败，提前终止流程"
             exit 1
           fi
 
-      - name: Export 无签名 IPA（极简无冲突命令，规避段错误）
+      - name: 【打包IPA】生成TrollStore专用无签名IPA
         run: |
-          cd ios
-          xcodebuild -exportArchive \
-            -archivePath build/Runner.xcarchive \
-            -exportPath build/export_unsigned \
-            -exportOptionsPlist ../exportOptions.plist
+          # 创建IPA标准目录结构
+          mkdir -p Payload
+          # 把编译好的无签名APP复制到Payload目录
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          # 打包成TrollStore兼容的IPA文件
+          zip -r tvbox_trollstore_unsigned.ipa Payload/
+          # 清理临时目录
+          rm -rf Payload/
 
-      - name: 【IPA校验】检查IPA是否生成成功
+      - name: 【最终校验】确认IPA生成成功
         run: |
-          if [ -f "ios/build/export_unsigned/Runner.ipa" ]; then
-            echo "✅ 无签名IPA生成成功"
+          if [ -f "tvbox_trollstore_unsigned.ipa" ]; then
+            echo "✅ TrollStore专用无签名IPA生成成功"
+            ls -la tvbox_trollstore_unsigned.ipa
           else
             echo "❌ IPA生成失败"
             exit 1
           fi
 
-      - name: Upload unsigned IPA Artifact
+      - name: 上传无签名IPA产物
         uses: actions/upload-artifact@v4
         with:
-          name: tvbox_unsigned_ios_ipa
-          path: ios/build/export_unsigned/Runner.ipa
+          name: tvbox_trollstore_unsigned_ipa
+          path: tvbox_trollstore_unsigned.ipa
           retention-days: 30
