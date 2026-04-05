@@ -73,16 +73,15 @@ class _MyAppState extends State<MyApp> {
       // 串行初始化核心服务，避免并发初始化导致的内存溢出/异常
       await NetworkService.instance.init();
       await JsEngine.instance.init();
+      // 修复：确保JS引擎完全就绪后，再添加测试源
+      await Future.delayed(const Duration(milliseconds: 200));
 
-      // 完全保留你原有内置测试源，仅修复JS脚本兼容+链接报错问题
+      // 完全保留你原有内置测试源，修复字段匹配问题
       await SpiderManager.instance.addSource(const SpiderSource(
         key: "default_test",
         name: "内置测试源",
         type: 3,
         api: "",
-        // 修复1：补充CatVodSpider基类定义，解决JS执行失败导致的解析报错
-        // 修复2：补充播放请求User-Agent，解决CDN拦截导致的link fetch error
-        // 修复3：规范字段匹配，解决图片链接被错误解析导致的网页解析失败
         ext: """
 class CatVodSpider {
   constructor() {}
@@ -97,24 +96,24 @@ class MySpider extends CatVodSpider {
     return {
       list: [
         {
-          vod_id: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-          vod_name: '测试视频-大兔子邦尼',
-          vod_pic: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/800px-Big_buck_bunny_poster_big.jpg',
-          vod_remarks: '测试视频',
-          vod_year: '2008',
-          vod_area: '美国',
-          vod_lang: '英语',
-          vod_content: '这是一个开源测试视频，用于验证播放器功能'
+          id: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+          name: '测试视频-大兔子邦尼',
+          pic: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/800px-Big_buck_bunny_poster_big.jpg',
+          remark: '测试视频',
+          year: '2008',
+          area: '美国',
+          lang: '英语',
+          des: '这是一个开源测试视频，用于验证播放器功能'
         },
         {
-          vod_id: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-          vod_name: '大象之梦',
-          vod_pic: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/ElephantsDream.jpg/800px-ElephantsDream.jpg',
-          vod_remarks: '测试视频',
-          vod_year: '2006',
-          vod_area: '荷兰',
-          vod_lang: '英语',
-          vod_content: '世界上第一部开源电影'
+          id: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+          name: '大象之梦',
+          pic: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/ElephantsDream.jpg/800px-ElephantsDream.jpg',
+          remark: '测试视频',
+          year: '2006',
+          area: '荷兰',
+          lang: '英语',
+          des: '世界上第一部开源电影'
         }
       ]
     };
