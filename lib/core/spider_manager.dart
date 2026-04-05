@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
 import 'package:petitparser/petitparser.dart';
@@ -163,6 +162,7 @@ class SpiderManager {
     }).toList();
   }
 
+  // Type1 接口源处理
   Future<Map<String, dynamic>> _executeType1(String method, List<dynamic> args) async {
     final source = _currentSource!;
     final Map<String, dynamic> params = {};
@@ -175,6 +175,7 @@ class SpiderManager {
     return Map<String, dynamic>.from(response);
   }
 
+  // Type2 XPath源处理
   Future<Map<String, dynamic>> _executeType2(String method, List<dynamic> args) async {
     final source = _currentSource!;
     final ext = source.ext ?? '';
