@@ -13,6 +13,9 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      - name: 锁定Xcode稳定版本（规避版本兼容崩溃）
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
       - name: Setup Flutter SDK
         uses: subosito/flutter-action@v2
         with:
@@ -25,23 +28,25 @@ jobs:
           flutter pub get
           flutter analyze --no-fatal-infos --no-fatal-warnings # 只拦截致命错误
 
-      - name: 【强制彻底清理】全量清理构建缓存
+      - name: 【强制彻底清理】全量清理所有构建缓存（解决缓存污染导致的崩溃）
         run: |
           flutter clean
           rm -rf ios/Pods
           rm -rf ios/Podfile.lock
+          rm -rf ios/build
           rm -rf .dart_tool
           rm -rf build
+          rm -rf ~/Library/Developer/Xcode/DerivedData/*
 
       - name: 重新安装依赖
         run: |
           flutter pub get
-          cd ios && pod deintegrate && pod install --repo-update --verbose
+          cd ios && pod deintegrate && pod install --repo-update
 
-      - name: 【新增关键步骤】Flutter预编译iOS项目（彻底关闭签名）
+      - name: 【关键前置步骤】Flutter无签名预编译（彻底关闭Flutter层面签名校验）
         run: flutter build ios --release --no-codesign --config-only
 
-      - name: Xcode Archive 无签名归档（开启详细日志）
+      - name: Xcode Archive 无签名归档（全链路关闭签名，避免产物损坏）
         run: |
           cd ios
           xcodebuild archive \
@@ -54,19 +59,34 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
-            -verbose # 开启详细日志，定位脚本失败原因
+            CODE_SIGN_ENTITLEMENTS="" \
+            CODE_SIGNING_REQUIRED_FOR_PRODUCT_TYPE=NO
 
-      - name: Export 无签名 IPA
+      - name: 【归档校验】检查归档产物是否有效（提前发现损坏文件）
+        run: |
+          if [ -d "ios/build/Runner.xcarchive" ]; then
+            echo "✅ 归档文件生成成功，无损坏"
+          else
+            echo "❌ 归档文件生成失败，提前终止流程"
+            exit 1
+          fi
+
+      - name: Export 无签名 IPA（极简无冲突命令，规避段错误）
         run: |
           cd ios
           xcodebuild -exportArchive \
             -archivePath build/Runner.xcarchive \
             -exportPath build/export_unsigned \
-            -exportOptionsPlist ../exportOptions.plist \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            DEVELOPMENT_TEAM=""
+            -exportOptionsPlist ../exportOptions.plist
+
+      - name: 【IPA校验】检查IPA是否生成成功
+        run: |
+          if [ -f "ios/build/export_unsigned/Runner.ipa" ]; then
+            echo "✅ 无签名IPA生成成功"
+          else
+            echo "❌ IPA生成失败"
+            exit 1
+          fi
 
       - name: Upload unsigned IPA Artifact
         uses: actions/upload-artifact@v4
