@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+// 【修复】导入dart:ui，PlatformDispatcher定义在此文件中
+import 'dart:ui';
 import 'package:provider/provider.dart';
 import './views/home_view.dart';
 import './viewmodels/home_viewmodel.dart';
