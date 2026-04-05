@@ -29,14 +29,14 @@ class JsEngine {
     await init();
   }
 
-  /// 【修复报错】移除不存在的API，完全适配4.13.1版本
+  /// 【重构】彻底解决超时问题的初始化逻辑
   Future<void> init({int retryCount = 0}) async {
-    // 最大重试3次，避免无限循环
+    // 最大重试3次
     if (retryCount > 3) {
       throw Exception("JS引擎初始化失败，已重试3次");
     }
 
-    // 重复初始化防护，先彻底释放旧资源
+    // 重复初始化防护
     if (_isInitialized) {
       await dispose();
     }
@@ -44,21 +44,20 @@ class JsEngine {
     final Completer<void> pageLoadedCompleter = Completer<void>();
 
     try {
-      // 1. 完全适配webview_flutter 4.13.1版本API，移除报错行
+      debugPrint('🚀 开始初始化JS引擎...');
+      // 1. 创建WebViewController
       _webViewController = WebViewController()
-        // 强制开启JavaScript，必须配置
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        // 背景透明，无头运行
         ..setBackgroundColor(Colors.transparent)
-        // 【iOS适配】标准Safari UA，绕过无签名环境权限拦截
         ..setUserAgent(
           "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
         )
-        // 逐个添加JS通道，适配4.13.1版本API
+        // 【核心修复1】先注册通道，再加载HTML，确保JS执行时通道已存在
         ..addJavaScriptChannel(
           _execChannelName,
           onMessageReceived: (JavaScriptMessage message) {
             try {
+              debugPrint('📥 收到JS执行结果: ${message.message.substring(0, 100)}');
               final Map<String, dynamic> result = jsonDecode(message.message);
               final String execId = result['execId'];
               final bool success = result['success'];
@@ -74,6 +73,13 @@ class JsEngine {
               }
             } catch (e) {
               debugPrint('❌ 执行结果解析失败: $e');
+              // 解析失败也必须结束等待，避免超时
+              final Map<String, dynamic> result = jsonDecode(message.message);
+              final String execId = result['execId'];
+              if (_pendingExecutions.containsKey(execId)) {
+                final completer = _pendingExecutions.remove(execId)!;
+                completer.completeError(Exception("执行结果解析失败: $e"));
+              }
             }
           },
         )
@@ -117,11 +123,10 @@ class JsEngine {
             }
           },
         )
-        // 导航监听配置
         ..setNavigationDelegate(
           NavigationDelegate(
             onPageFinished: (String url) async {
-              // 页面加载完成，标记HTML加载完成
+              debugPrint('✅ HTML页面加载完成: $url');
               if (!pageLoadedCompleter.isCompleted) {
                 pageLoadedCompleter.complete();
               }
@@ -133,71 +138,13 @@ class JsEngine {
               }
               _isEnvReady = false;
             },
-            // 允许所有导航，解除iOS本地页面限制
             onNavigationRequest: (NavigationRequest request) {
               return NavigationDecision.navigate;
             },
           ),
         );
 
-      // 3. 【第一阶段】先加载极简HTML，验证JS基础执行能力
-      const minHtml = """
-      <!DOCTYPE html>
-      <html>
-      <head><meta charset="utf-8"></head>
-      <body>
-        <script type="text/javascript">
-          window._testJsReady = function() {
-            return "ok";
-          };
-        </script>
-      </body>
-      </html>
-      """;
-      await _webViewController!.loadHtmlString(minHtml);
-      // 等待HTML加载完成
-      await pageLoadedCompleter.future.timeout(const Duration(seconds: 10));
-
-      // 4. 循环检测JS上下文是否真正就绪，最多等待5秒
-      bool jsReady = false;
-      int checkCount = 0;
-      while (!jsReady && checkCount < 50) {
-        try {
-          final result = await _webViewController!.runJavaScriptReturningResult("window._testJsReady()");
-          if (result.toString() == "ok") {
-            jsReady = true;
-            break;
-          }
-        } catch (e) {
-          debugPrint('⏳ JS上下文就绪检测中... 第${checkCount+1}次');
-        }
-        await Future.delayed(const Duration(milliseconds: 100));
-        checkCount++;
-      }
-
-      if (!jsReady) {
-        throw Exception("JS上下文初始化超时，无法执行基础JS");
-      }
-      debugPrint('✅ JS基础执行能力验证通过');
-
-      // 5. 【第二阶段】加载完整的TVBox JS运行环境
-      final Completer<void> envLoadedCompleter = Completer<void>();
-      _webViewController!.setNavigationDelegate(
-        NavigationDelegate(
-          onPageFinished: (String url) async {
-            if (!envLoadedCompleter.isCompleted) {
-              envLoadedCompleter.complete();
-            }
-          },
-          onWebResourceError: (WebResourceError error) {
-            if (!envLoadedCompleter.isCompleted) {
-              envLoadedCompleter.completeError(Exception("运行环境加载失败: ${error.description}"));
-            }
-          },
-          onNavigationRequest: (NavigationRequest request) => NavigationDecision.navigate,
-        ),
-      );
-
+      // 2. 加载完整的TVBox运行环境HTML（合并两阶段加载，减少时序问题）
       final fullEnvHtml = """
       <!DOCTYPE html>
       <html>
@@ -213,7 +160,13 @@ class JsEngine {
           var module = { exports: {} };
           var exports = module.exports;
 
-          // 爬虫基类，用window赋值避免重复声明
+          // 【核心修复2】全局错误捕获，任何JS错误都打印日志
+          window.onerror = function(message, source, lineno, colno, error) {
+            console.error('全局JS错误:', message, error);
+            return false;
+          };
+
+          // 爬虫基类
           if (window.CatVodSpider) delete window.CatVodSpider;
           window.CatVodSpider = class CatVodSpider {
             constructor() {}
@@ -266,29 +219,55 @@ class JsEngine {
           window._tvboxRequestId = 0;
           window._tvboxExecId = 0;
 
-          // 全局执行方法，通过通道返回结果
+          // 【核心修复3】100%确保回调，无论成功失败
           window.tvboxRunScript = function(scriptCode) {
             const execId = (++window._tvboxExecId).toString();
+            console.log('开始执行脚本, execId:', execId);
+            
+            // 立即执行，用try-catch包裹所有逻辑，绝对不能中断
             (async () => {
               try {
-                // 执行前清理旧的爬虫类
+                // 先清理旧的爬虫类
                 if (window.MySpider) delete window.MySpider;
+                console.log('清理旧MySpider完成');
+                
+                // 执行脚本
+                console.log('开始执行业务脚本');
                 const result = await eval(scriptCode);
+                console.log('脚本执行成功, 结果:', JSON.stringify(result).substring(0, 200));
+                
+                // 成功回调，必须执行
                 $_execChannelName.postMessage(JSON.stringify({
                   execId: execId,
                   success: true,
                   data: result
                 }));
+                console.log('成功回调已发送');
               } catch (e) {
-                console.error('JS执行错误:', e);
-                $_execChannelName.postMessage(JSON.stringify({
-                  execId: execId,
-                  success: false,
-                  data: e.toString()
-                }));
+                console.error('脚本执行失败:', e);
+                // 失败回调，必须执行，哪怕JSON序列化失败也有兜底
+                try {
+                  $_execChannelName.postMessage(JSON.stringify({
+                    execId: execId,
+                    success: false,
+                    data: e.toString()
+                  }));
+                } catch (jsonError) {
+                  $_execChannelName.postMessage(JSON.stringify({
+                    execId: execId,
+                    success: false,
+                    data: 'JS执行失败，JSON序列化异常'
+                  }));
+                }
               }
             })();
+            
             return execId;
+          };
+
+          // 【健康检查工具】验证通道是否正常
+          window.tvboxHealthCheck = function() {
+            return "ok";
           };
         </script>
       </body>
@@ -297,19 +276,24 @@ class JsEngine {
           .replaceAll("\$_execChannelName", _execChannelName)
           .replaceAll("\$_httpChannelName", _httpChannelName);
 
-      // 加载完整运行环境
+      // 加载HTML
       await _webViewController!.loadHtmlString(fullEnvHtml);
-      await envLoadedCompleter.future.timeout(const Duration(seconds: 10));
+      await pageLoadedCompleter.future.timeout(const Duration(seconds: 10));
+      debugPrint('✅ HTML加载完成，等待JS环境就绪');
 
-      // 6. 循环检测核心执行函数是否就绪
+      // 3. 循环检测核心函数是否就绪
       bool envReady = false;
       int envCheckCount = 0;
       while (!envReady && envCheckCount < 50) {
         try {
-          final result = await _webViewController!.runJavaScriptReturningResult("typeof window.tvboxRunScript !== 'undefined'");
+          final result = await _webViewController!.runJavaScriptReturningResult("typeof window.tvboxRunScript !== 'undefined' && typeof window.tvboxHealthCheck !== 'undefined'");
           if (result.toString() == "true") {
-            envReady = true;
-            break;
+            // 执行健康检查，验证JS执行正常
+            final healthResult = await _webViewController!.runJavaScriptReturningResult("window.tvboxHealthCheck()");
+            if (healthResult.toString() == "ok") {
+              envReady = true;
+              break;
+            }
           }
         } catch (e) {
           debugPrint('⏳ 运行环境就绪检测中... 第${envCheckCount+1}次');
@@ -330,7 +314,6 @@ class JsEngine {
       _isInitialized = false;
       _isEnvReady = false;
       debugPrint('❌ JS引擎初始化失败: $e');
-      // 失败重试
       await Future.delayed(const Duration(milliseconds: 300));
       await init(retryCount: retryCount + 1);
     }
@@ -349,8 +332,14 @@ class JsEngine {
     }
   }
 
-  /// 执行爬虫脚本，完全适配iOS
-  Future<dynamic> executeScript(SpiderSource source, String method, List<dynamic> args) async {
+  /// 【重构】执行爬虫脚本，彻底解决超时问题
+  Future<dynamic> executeScript(SpiderSource source, String method, List<dynamic> args, {int retryCount = 0}) async {
+    // 最大重试2次
+    const maxRetry = 2;
+    if (retryCount > maxRetry) {
+      throw Exception("JS脚本执行失败，已重试$maxRetry次");
+    }
+
     // 执行前确保引擎就绪
     await ensureInitialized();
     if (!_isEnvReady || _webViewController == null) {
@@ -363,19 +352,28 @@ class JsEngine {
     _pendingExecutions[execId] = execCompleter;
 
     try {
+      debugPrint('🚀 开始执行爬虫方法: $method, execId: $execId, 重试次数: $retryCount');
+
       // 1. 加载远程JS脚本
       if (source.api?.isNotEmpty == true) {
+        debugPrint('📥 开始加载远程JS脚本');
         final remoteScript = await NetworkService.instance.get(source.api!);
         await _webViewController!.runJavaScript(remoteScript);
         await Future.delayed(const Duration(milliseconds: 100));
+        debugPrint('✅ 远程JS脚本加载完成');
       }
 
-      // 2. 加载本地爬虫脚本，仅在不存在时加载
+      // 2. 加载本地爬虫脚本
       if (source.ext?.isNotEmpty == true) {
+        debugPrint('📥 开始加载本地爬虫脚本');
+        // 先检查MySpider是否已存在，避免重复加载
         final hasSpider = await executeRawScript("typeof window.MySpider !== 'undefined'");
         if (hasSpider.toString() != 'true') {
           await _webViewController!.runJavaScript(source.ext!);
           await Future.delayed(const Duration(milliseconds: 200));
+          debugPrint('✅ 本地爬虫脚本加载完成');
+        } else {
+          debugPrint('ℹ️ 本地爬虫脚本已存在，跳过加载');
         }
       }
 
@@ -385,23 +383,33 @@ class JsEngine {
         const spider = new MySpider();
         return await spider.$method($argsJson);
       """;
+      debugPrint('📝 执行代码: $execCode');
 
       // 4. 执行脚本
       await _webViewController!.runJavaScript("""
         window.tvboxRunScript(${jsonEncode(execCode)});
       """);
 
-      // 5. 等待执行结果，加超时兜底
+      // 5. 等待执行结果，【优化】缩短超时时间到15秒，避免长时间等待
       final result = await execCompleter.future.timeout(
-        const Duration(seconds: 30),
+        const Duration(seconds: 15),
         onTimeout: () => throw Exception("JS脚本执行超时"),
       );
 
       _pendingExecutions.remove(execId);
+      debugPrint('✅ 脚本执行成功，execId: $execId');
       return result;
     } catch (e) {
       _pendingExecutions.remove(execId);
-      debugPrint('❌ JS脚本执行异常: $e');
+      debugPrint('❌ 脚本执行异常: $e, 重试次数: $retryCount');
+      
+      // 超时自动重试
+      if (e.toString().contains("超时") && retryCount < maxRetry) {
+        await dispose();
+        await Future.delayed(const Duration(milliseconds: 300));
+        return await executeScript(source, method, args, retryCount: retryCount + 1);
+      }
+
       await dispose();
       throw Exception("JS脚本执行异常: ${e.toString()}");
     }
@@ -414,9 +422,16 @@ class JsEngine {
       await _webViewController!.clearLocalStorage();
       _webViewController = null;
     }
+    // 强制结束所有等待中的执行，避免内存泄漏和永久等待
+    _pendingExecutions.forEach((key, completer) {
+      if (!completer.isCompleted) {
+        completer.completeError(Exception("JS引擎已释放"));
+      }
+    });
     _pendingExecutions.clear();
     _pendingHttpRequests.clear();
     _isInitialized = false;
     _isEnvReady = false;
+    debugPrint('♻️ JS引擎资源已释放');
   }
 }
