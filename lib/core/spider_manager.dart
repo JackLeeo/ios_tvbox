@@ -102,6 +102,10 @@ class SpiderManager {
   SpiderSource? get currentSource => _currentSource;
   bool get hasSource => _sourceList.isNotEmpty && _currentSource != null;
 
+  Future<void> init() async {
+    // 空实现，兼容main.dart初始化调用
+  }
+
   Future<void> addSource(SpiderSource source) async {
     _sourceList.removeWhere((e) => e.key == source.key);
     _sourceList.add(source);
@@ -131,10 +135,20 @@ class SpiderManager {
     }
   }
 
+  // 修复：统一字段格式，兼容vod_前缀和无前缀字段，确保VideoModel解析正常
   Future<List<VideoModel>> getHomeContent({bool filter = false}) async {
     final r = await execute("homeContent", [filter]);
     final list = r['list'] as List;
-    return list.map((e) => VideoModel.fromJson(e)).toList();
+    return list.map((e) {
+      // 兼容两种字段格式，解决解析失败问题
+      Map<String, dynamic> jsonMap = Map<String, dynamic>.from(e);
+      jsonMap['id'] = jsonMap['id'] ?? jsonMap['vod_id'];
+      jsonMap['name'] = jsonMap['name'] ?? jsonMap['vod_name'];
+      jsonMap['pic'] = jsonMap['pic'] ?? jsonMap['vod_pic'];
+      jsonMap['remark'] = jsonMap['remark'] ?? jsonMap['vod_remarks'];
+      jsonMap['des'] = jsonMap['des'] ?? jsonMap['vod_content'];
+      return VideoModel.fromJson(jsonMap);
+    }).toList();
   }
 
   Future<VideoModel> getDetailContent(String id) async {
@@ -146,7 +160,14 @@ class SpiderManager {
   Future<List<VideoModel>> searchContent(String wd, {bool quick = false, int pg = 1}) async {
     final r = await execute("searchContent", [wd, quick, pg]);
     final list = r['list'] as List;
-    return list.map((e) => VideoModel.fromJson(e)).toList();
+    return list.map((e) {
+      Map<String, dynamic> jsonMap = Map<String, dynamic>.from(e);
+      jsonMap['id'] = jsonMap['id'] ?? jsonMap['vod_id'];
+      jsonMap['name'] = jsonMap['name'] ?? jsonMap['vod_name'];
+      jsonMap['pic'] = jsonMap['pic'] ?? jsonMap['vod_pic'];
+      jsonMap['remark'] = jsonMap['remark'] ?? jsonMap['vod_remarks'];
+      return VideoModel.fromJson(jsonMap);
+    }).toList();
   }
 
   // Type1 已保留你原有安全兜底逻辑，无额外改动
