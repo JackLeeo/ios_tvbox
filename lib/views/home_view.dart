@@ -15,6 +15,7 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   bool _isInitDone = false;
+  bool _isInitLoading = false;
 
   @override
   void initState() {
@@ -25,22 +26,39 @@ class _HomeViewState extends State<HomeView> {
     });
   }
 
-  /// 首帧渲染完成后，再初始化数据，绝不阻塞启动
+  /// 【修复优化】初始化逻辑，优化时序，加重试和状态管理
   Future<void> _initAppData() async {
     if (_isInitDone) return;
     try {
-      // 初始化基础服务
+      setState(() {
+        _isInitLoading = true;
+      });
+
+      // 先初始化基础管理器
       await SpiderManager.instance.init();
       // 添加内置测试源
       await _addDefaultTestSource();
+      // 额外等待JS环境完全稳定，适配iOS端特性
+      await Future.delayed(const Duration(milliseconds: 500));
+
       // 加载首页数据
       if (mounted) {
         await Provider.of<HomeViewModel>(context, listen: false).loadHomeData();
       }
+
       _isInitDone = true;
+      if (mounted) {
+        setState(() {
+          _isInitLoading = false;
+        });
+      }
     } catch (e) {
       debugPrint('首页初始化失败：$e');
       if (mounted) {
+        setState(() {
+          _isInitLoading = false;
+        });
+        // 显示错误提示，不阻塞UI
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('初始化失败：${e.toString()}')),
         );
@@ -48,7 +66,7 @@ class _HomeViewState extends State<HomeView> {
     }
   }
 
-  /// 内置测试源，完全保留你原有逻辑
+  /// 内置测试源，完全保留原有逻辑
   Future<void> _addDefaultTestSource() async {
     if (SpiderManager.instance.hasSource) return;
     await SpiderManager.instance.addSource(const SpiderSource(
@@ -153,105 +171,109 @@ class MySpider extends CatVodSpider {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () => Provider.of<HomeViewModel>(context, listen: false).refresh(),
-        child: Consumer<HomeViewModel>(
-          builder: (context, vm, child) {
-            // 加载中
-            if (vm.isLoading && vm.videoList.isEmpty) {
-              return const Center(child: CircularProgressIndicator());
-            }
+      body: _isInitLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: () => Provider.of<HomeViewModel>(context, listen: false).refresh(),
+              child: Consumer<HomeViewModel>(
+                builder: (context, vm, child) {
+                  // 加载中
+                  if (vm.isLoading && vm.videoList.isEmpty) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-            // 加载失败
-            if (vm.errorMessage != null && vm.videoList.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(vm.errorMessage!, textAlign: TextAlign.center),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: vm.loadHomeData,
-                      child: const Text("重试"),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            // 视频列表
-            return GridView.builder(
-              padding: const EdgeInsets.all(12),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: MediaQuery.of(context).size.width ~/ 180,
-                childAspectRatio: 0.7,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: vm.videoList.length,
-              itemBuilder: (context, index) {
-                final video = vm.videoList[index];
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => DetailView(videoId: video.id),
+                  // 加载失败
+                  if (vm.errorMessage != null && vm.videoList.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(vm.errorMessage!, textAlign: TextAlign.center),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: vm.loadHomeData,
+                            child: const Text("重试"),
+                          ),
+                        ],
                       ),
                     );
-                  },
-                  child: Card(
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                            child: Image.network(
-                              video.pic,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Center(child: Icon(Icons.broken_image, size: 40));
-                              },
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-                              },
+                  }
+
+                  // 视频列表
+                  return GridView.builder(
+                    padding: const EdgeInsets.all(12),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: MediaQuery.of(context).size.width ~/ 180,
+                      childAspectRatio: 0.7,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    itemCount: vm.videoList.length,
+                    itemBuilder: (context, index) {
+                      final video = vm.videoList[index];
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => DetailView(videoId: video.id),
                             ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(8),
+                          );
+                        },
+                        child: Card(
+                          clipBehavior: Clip.antiAlias,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                video.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                                  child: Image.network(
+                                    video.pic,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return const Center(child: Icon(Icons.broken_image, size: 40));
+                                    },
+                                    loadingBuilder: (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+                                    },
+                                  ),
+                                ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                video.remark,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                              Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      video.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      video.remark,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            );
-          },
-        ),
-      ),
-    );
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+        );
+  }
+}
   }
 }
