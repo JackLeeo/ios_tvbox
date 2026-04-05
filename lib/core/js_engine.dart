@@ -29,7 +29,7 @@ class JsEngine {
     await init();
   }
 
-  /// 【完全适配webview_flutter 4.13.1】初始化逻辑
+  /// 【修复报错】移除不存在的API，完全适配4.13.1版本
   Future<void> init({int retryCount = 0}) async {
     // 最大重试3次，避免无限循环
     if (retryCount > 3) {
@@ -44,7 +44,7 @@ class JsEngine {
     final Completer<void> pageLoadedCompleter = Completer<void>();
 
     try {
-      // 1. 【修复】创建WebViewController，完全适配4.13.1版本API
+      // 1. 完全适配webview_flutter 4.13.1版本API，移除报错行
       _webViewController = WebViewController()
         // 强制开启JavaScript，必须配置
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -54,9 +54,7 @@ class JsEngine {
         ..setUserAgent(
           "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
         )
-        // 【修复】4.13.1版本正确的媒体自动播放配置
-        ..setMediaPlaybackRequiresUserGesture(false)
-        // 【修复】逐个添加JS通道，适配4.13.1版本API（无批量添加方法）
+        // 逐个添加JS通道，适配4.13.1版本API
         ..addJavaScriptChannel(
           _execChannelName,
           onMessageReceived: (JavaScriptMessage message) {
