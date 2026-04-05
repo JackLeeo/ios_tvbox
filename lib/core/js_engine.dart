@@ -10,9 +10,10 @@ class JsEngine {
   bool _isInitialized = false;
   // JS-Dart异步请求映射表，处理http异步回调
   final Map<String, Completer<dynamic>> _pendingRequests = {};
-  int _requestId = 0;
   // 通道名常量
   static const String _channelName = "tvbox_http";
+  // 页面加载完成标志
+  final Completer<void> _pageLoadedCompleter = Completer<void>();
 
   // 单例模式，和原有接口完全一致
   static final JsEngine instance = JsEngine._internal();
@@ -21,58 +22,77 @@ class JsEngine {
   /// 初始化JS运行环境，无头WebView后台加载，无UI侵入
   Future<void> init() async {
     if (_isInitialized && _webViewController != null) return;
+    // 重置页面加载标志
+    if (_pageLoadedCompleter.isCompleted) {
+      _pageLoadedCompleter = Completer<void>();
+    }
 
-    // 1. 创建无头WebView控制器，纯后台运行JS
-    _webViewController = WebViewController.fromPlatformCreationParams(
-      const PlatformWebViewControllerCreationParams(),
-    );
+    // 1. 创建WebView控制器，适配4.13.1官方标准初始化方式
+    _webViewController = WebViewController()
+      // 开启JavaScript支持，必须配置
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      // 背景透明，无头运行无UI
+      ..setBackgroundColor(Colors.transparent)
+      // 设置浏览器UA，适配爬虫场景
+      ..setUserAgent(
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+      )
+      // 配置页面导航监听，确保JS环境加载完成
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (String url) {
+            // 页面加载完成，标记JS环境就绪
+            if (!_pageLoadedCompleter.isCompleted) {
+              _pageLoadedCompleter.complete();
+            }
+          },
+          onWebResourceError: (WebResourceError error) {
+            // 页面加载失败处理
+            if (!_pageLoadedCompleter.isCompleted) {
+              _pageLoadedCompleter.completeError(Exception("WebView加载失败: ${error.description}"));
+            }
+          },
+        ),
+      )
+      // 注册JS-Dart通信通道，处理JS发起的http请求
+      ..addJavaScriptChannel(
+        _channelName,
+        onMessageReceived: (JavaScriptMessage message) async {
+          try {
+            final Map<String, dynamic> msgData = jsonDecode(message.message);
+            final String requestId = msgData['requestId'];
+            final String method = msgData['method'];
+            final List<dynamic> args = msgData['args'] ?? [];
 
-    // 2. 配置WebView基础参数
-    await _webViewController!.setJavaScriptMode(JavaScriptMode.unrestricted);
-    await _webViewController!.setBackgroundColor(Colors.transparent);
-    await _webViewController!.setUserAgent(
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
-    );
+            dynamic result;
+            // 处理JS发起的http请求
+            if (method == 'get') {
+              final url = args[0] as String;
+              final headers = args.length > 1 ? Map<String, dynamic>.from(args[1]) : <String, dynamic>{};
+              result = await NetworkService.instance.get(url, headers: headers);
+            } else if (method == 'post') {
+              final url = args[0] as String;
+              final data = args.length > 1 ? args[1] : null;
+              final headers = args.length > 2 ? Map<String, dynamic>.from(args[2]) : <String, dynamic>{};
+              result = await NetworkService.instance.post(url, data: data, headers: headers);
+            }
 
-    // 3. 注册JS-Dart通信通道，处理JS发起的http请求
-    await _webViewController!.addJavaScriptChannel(
-      _channelName,
-      onMessageReceived: (JavaScriptMessage message) async {
-        try {
-          final Map<String, dynamic> msgData = jsonDecode(message.message);
-          final String requestId = msgData['requestId'];
-          final String method = msgData['method'];
-          final List<dynamic> args = msgData['args'] ?? [];
-
-          dynamic result;
-          // 处理JS发起的http请求
-          if (method == 'get') {
-            final url = args[0] as String;
-            final headers = args.length > 1 ? Map<String, dynamic>.from(args[1]) : <String, dynamic>{};
-            result = await NetworkService.instance.get(url, headers: headers);
-          } else if (method == 'post') {
-            final url = args[0] as String;
-            final data = args.length > 1 ? args[1] : null;
-            final headers = args.length > 2 ? Map<String, dynamic>.from(args[2]) : <String, dynamic>{};
-            result = await NetworkService.instance.post(url, data: data, headers: headers);
+            // 把请求结果返回给JS
+            await _webViewController?.runJavaScript("""
+              window._tvboxHttpCallback('$requestId', true, ${jsonEncode(result)});
+            """);
+          } catch (e) {
+            // 把错误返回给JS
+            final Map<String, dynamic> msgData = jsonDecode(message.message);
+            final String requestId = msgData['requestId'];
+            await _webViewController?.runJavaScript("""
+              window._tvboxHttpCallback('$requestId', false, '${e.toString().replaceAll("'", "\\'")}');
+            """);
           }
+        },
+      );
 
-          // 把请求结果返回给JS
-          await _webViewController!.runJavaScript("""
-            window._tvboxHttpCallback('$requestId', true, ${jsonEncode(result)});
-          """);
-        } catch (e) {
-          // 把错误返回给JS
-          final Map<String, dynamic> msgData = jsonDecode(message.message);
-          final String requestId = msgData['requestId'];
-          await _webViewController!.runJavaScript("""
-            window._tvboxHttpCallback('$requestId', false, '${e.toString().replaceAll("'", "\\'")}');
-          """);
-        }
-      },
-    );
-
-    // 4. 加载空白HTML，初始化JS全局环境（TVBox标准兼容）
+    // 2. 加载空白HTML，初始化JS全局环境（TVBox标准兼容）
     final initHtml = """
     <!DOCTYPE html>
     <html>
@@ -156,8 +176,8 @@ class JsEngine {
 
     // 加载初始化HTML，完成JS环境准备
     await _webViewController!.loadHtmlString(initHtml);
-    // 等待页面加载完成，确保JS环境就绪
-    await _webViewController!.waitForFirstPaint();
+    // 等待页面加载完成，确保JS环境完全就绪
+    await _pageLoadedCompleter.future;
 
     _isInitialized = true;
   }
@@ -213,5 +233,8 @@ class JsEngine {
     }
     _pendingRequests.clear();
     _isInitialized = false;
+    if (!_pageLoadedCompleter.isCompleted) {
+      _pageLoadedCompleter.completeError(Exception("引擎已释放"));
+    }
   }
 }
