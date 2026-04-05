@@ -21,25 +21,27 @@
     <key>LSRequiresIPhoneOS</key>
     <true/>
 
-    <!-- 【关键修复】Flutter启动必需配置 -->
+    <!-- Flutter启动必需配置 -->
     <key>UILaunchStoryboardName</key>
     <string>LaunchScreen</string>
     <key>UIMainStoryboardFile</key>
     <string>Main</string>
 
-    <!-- 【关键修复】强制横屏配置，和代码完全匹配 -->
+    <!-- 【修正】支持竖屏+横屏，和代码配置完全匹配，默认竖屏优先 -->
     <key>UISupportedInterfaceOrientations</key>
     <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
         <string>UIInterfaceOrientationLandscapeLeft</string>
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
     <key>UISupportedInterfaceOrientations~ipad</key>
     <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
         <string>UIInterfaceOrientationLandscapeLeft</string>
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
-    <key>UIRequiresFullScreen</key>
-    <true/>
 
     <!-- iOS 13+ Scene配置，必需项 -->
     <key>UIApplicationSceneManifest</key>
