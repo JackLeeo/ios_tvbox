@@ -14,7 +14,7 @@ dependencies:
   # 网络请求（Flutter生态最主流，官方verified发布）
   dio: ^5.5.0+1
   # 【修正后兼容版】Flutter官方维护，100%适配Flutter 3.41.6
-  webview_flutter: ^4.15.1
+  webview_flutter: ^4.13.1
   # HTML解析（Dart官方维护，永久可用）
   html: ^0.15.4
   # 语法解析（pub.dev verified发布，稳定可用）
