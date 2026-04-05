@@ -57,7 +57,7 @@ class _DetailViewState extends State<DetailView> {
             final playFrom = video.playFrom ?? <String>[];
             final playList = video.playUrl ?? <List<String>>[];
             
-            // 核心修复：删掉无用空合并，直接安全判断，消除 dead_null_aware_expression
+            // 核心修复：删掉无用空合并，直接安全判断，消除警告
             List<String> currentPlayList = [];
             if (playFrom.isNotEmpty && vm.currentFromIndex >= 0 && playList.length > vm.currentFromIndex) {
               currentPlayList = playList[vm.currentFromIndex];
@@ -112,8 +112,9 @@ class _DetailViewState extends State<DetailView> {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
+                  // 【修复116行2个空安全错误】先判断非空，再加?.isNotEmpty，兜底空字符串
                   Text(
-                    video.content.isNotEmpty ? video.content : "暂无简介",
+                    (video.content?.isNotEmpty ?? false) ? video.content! : "暂无简介",
                     style: const TextStyle(height: 1.5),
                   ),
                   const SizedBox(height: 24),
