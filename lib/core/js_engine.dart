@@ -12,8 +12,8 @@ class JsEngine {
   final Map<String, Completer<dynamic>> _pendingRequests = {};
   // 通道名常量
   static const String _channelName = "tvbox_http";
-  // 页面加载完成标志
-  final Completer<void> _pageLoadedCompleter = Completer<void>();
+  // 【修复final赋值错误】去掉final，改用late延迟初始化
+  late Completer<void> _pageLoadedCompleter;
 
   // 单例模式，和原有接口完全一致
   static final JsEngine instance = JsEngine._internal();
@@ -22,10 +22,8 @@ class JsEngine {
   /// 初始化JS运行环境，无头WebView后台加载，无UI侵入
   Future<void> init() async {
     if (_isInitialized && _webViewController != null) return;
-    // 重置页面加载标志
-    if (_pageLoadedCompleter.isCompleted) {
-      _pageLoadedCompleter = Completer<void>();
-    }
+    // 【修复】每次初始化重新创建Completer，解决重复赋值问题
+    _pageLoadedCompleter = Completer<void>();
 
     // 1. 创建WebView控制器，适配4.13.1官方标准初始化方式
     _webViewController = WebViewController()
@@ -93,6 +91,7 @@ class JsEngine {
       );
 
     // 2. 加载空白HTML，初始化JS全局环境（TVBox标准兼容）
+    // 【修复不必要的字符串插值】直接拼接常量，无需插值
     final initHtml = """
     <!DOCTYPE html>
     <html>
@@ -172,7 +171,7 @@ class JsEngine {
       </script>
     </body>
     </html>
-    """.replaceAll("$_channelName", _channelName);
+    """.replaceAll("\$_channelName", _channelName);
 
     // 加载初始化HTML，完成JS环境准备
     await _webViewController!.loadHtmlString(initHtml);
