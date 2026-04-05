@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/home_viewmodel.dart';
-import './source_debugger.dart';
-import './detail_view.dart';
+import '../core/log_service.dart';
 import '../core/spider_manager.dart';
-import '../core/js_engine.dart';
-import '../models/spider_source.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -15,277 +12,124 @@ class HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<HomeView> {
-  bool _isInitDone = false;
-  bool _isInitLoading = false;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initAppData();
+      context.read<HomeViewModel>().loadData();
     });
-  }
-
-  /// 【优化】严格串行初始化，避免并发执行导致的JS引擎异常
-  Future<void> _initAppData() async {
-    if (_isInitDone) return;
-    try {
-      setState(() {
-        _isInitLoading = true;
-      });
-
-      // 第一步：预初始化JS引擎，确保环境就绪
-      debugPrint('🚀 开始预初始化JS引擎');
-      await JsEngine.instance.ensureInitialized();
-      debugPrint('✅ JS引擎预初始化完成');
-
-      // 第二步：初始化爬虫管理器
-      await SpiderManager.instance.init();
-      // 第三步：添加内置测试源
-      await _addDefaultTestSource();
-      // 第四步：等待环境稳定
-      await Future.delayed(const Duration(milliseconds: 200));
-
-      // 第五步：加载首页数据
-      if (mounted) {
-        await Provider.of<HomeViewModel>(context, listen: false).loadHomeData();
-      }
-
-      _isInitDone = true;
-      if (mounted) {
-        setState(() {
-          _isInitLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('首页初始化失败：$e');
-      if (mounted) {
-        setState(() {
-          _isInitLoading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('初始化失败：${e.toString()}')),
-        );
-      }
-    }
-  }
-
-  /// 内置测试源
-  Future<void> _addDefaultTestSource() async {
-    if (SpiderManager.instance.hasSource) return;
-    debugPrint('📥 开始添加内置测试源');
-    await SpiderManager.instance.addSource(const SpiderSource(
-      key: "default_test",
-      name: "内置测试源",
-      type: 3,
-      api: "",
-      ext: """
-// 内置测试源脚本
-window.MySpider = class MySpider extends CatVodSpider {
-  async homeContent(filter) {
-    console.log('开始执行homeContent');
-    return {
-      list: [
-        {
-          id: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-          name: '测试视频-大兔子邦尼',
-          pic: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/800px-Big_buck_bunny_poster_big.jpg',
-          remark: '测试视频',
-          year: '2008',
-          area: '美国',
-          lang: '英语',
-          des: '这是一个开源测试视频，用于验证播放器功能'
-        },
-        {
-          id: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-          name: '大象之梦',
-          pic: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/ElephantsDream.jpg/800px-ElephantsDream.jpg',
-          remark: '测试视频',
-          year: '2006',
-          area: '荷兰',
-          lang: '英语',
-          des: '世界上第一部开源电影'
-        }
-      ]
-    };
-  }
-
-  async detailContent(ids) {
-    return {
-      list: [
-        {
-          vod_id: ids,
-          vod_name: ids.includes('BigBuckBunny') ? '大兔子邦尼' : '大象之梦',
-          vod_pic: ids.includes('BigBuckBunny') 
-            ? 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/800px-Big_buck_bunny_poster_big.jpg'
-            : 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/ElephantsDream.jpg/800px-ElephantsDream.jpg',
-          vod_remarks: '测试视频',
-          vod_year: ids.includes('BigBuckBunny') ? '2008' : '2006',
-          vod_area: ids.includes('BigBuckBunny') ? '美国' : '荷兰',
-          vod_lang: '英语',
-          vod_content: ids.includes('BigBuckBunny') 
-            ? '这是一个开源测试视频，用于验证播放器功能' 
-            : '世界上第一部开源电影',
-          vod_play_from: ['默认线路'],
-          vod_play_url: [
-            ['正片\$' + ids]
-          ]
-        }
-      ]
-    };
-  }
-
-  async playerContent(flag, id, vipFlags) {
-    return {
-      url: id,
-      header: {
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1'
-      },
-      isDirect: true
-    };
-  }
-
-  async searchContent(wd, quick, pg) {
-    return { list: [] };
-  }
-}
-""",
-    ));
-    debugPrint('✅ 内置测试源添加完成');
   }
 
   @override
   Widget build(BuildContext context) {
+    final vm = context.watch<HomeViewModel>();
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("TVBox Flutter"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SourceDebugger()),
-              );
-            },
-          ),
-          // 【新增】手动重试按钮，方便调试
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () async {
-              await JsEngine.instance.dispose();
-              setState(() {
-                _isInitDone = false;
-              });
-              _initAppData();
-            },
-          ),
-        ],
-      ),
-      body: _isInitLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: () async {
-                await JsEngine.instance.dispose();
-                setState(() {
-                  _isInitDone = false;
-                });
-                await _initAppData();
-              },
-              child: Consumer<HomeViewModel>(
-                builder: (context, vm, child) {
-                  if (vm.isLoading && vm.videoList.isEmpty) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (vm.errorMessage != null && vm.videoList.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(vm.errorMessage!, textAlign: TextAlign.center),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: vm.loadHomeData,
-                            child: const Text("重试"),
-                          ),
-                        ],
+      appBar: AppBar(title: const Text("TVBox")),
+      body: Stack(
+        children: [
+          // 主内容区域
+          vm.loading
+              ? const Center(child: CircularProgressIndicator())
+              : vm.error != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          vm.error!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.red),
+                        ),
                       ),
-                    );
-                  }
-
-                  return GridView.builder(
-                    padding: const EdgeInsets.all(12),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: MediaQuery.of(context).size.width ~/ 180,
-                      childAspectRatio: 0.7,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                    ),
-                    itemCount: vm.videoList.length,
-                    itemBuilder: (context, index) {
-                      final video = vm.videoList[index];
-                      return GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => DetailView(videoId: video.id),
-                            ),
-                          );
-                        },
-                        child: Card(
-                          clipBehavior: Clip.antiAlias,
+                    )
+                  : GridView.builder(
+                      padding: const EdgeInsets.all(8),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        childAspectRatio: 0.7,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      itemCount: vm.videoList.length,
+                      itemBuilder: (ctx, i) {
+                        final item = vm.videoList[i];
+                        return Card(
+                          clipBehavior: Clip.hardEdge,
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Expanded(
-                                child: ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                                  child: Image.network(
-                                    video.pic,
-                                    fit: BoxFit.cover,
-                                    width: double.infinity,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const Center(child: Icon(Icons.broken_image, size: 40));
-                                    },
-                                    loadingBuilder: (context, child, loadingProgress) {
-                                      if (loadingProgress == null) return child;
-                                      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-                                    },
-                                  ),
+                                child: Image.network(
+                                  item.pic ?? '',
+                                  fit: BoxFit.cover,
                                 ),
                               ),
                               Padding(
-                                padding: const EdgeInsets.all(8),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      video.name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      video.remark,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(fontSize: 12, color: Colors.grey[400]),
-                                    ),
-                                  ],
+                                padding: const EdgeInsets.all(4),
+                                child: Text(
+                                  item.title ?? '',
+                                  maxLines: 1,
+                                  style: const TextStyle(fontSize: 12),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      );
-                    },
-                  );
-                },
+                        );
+                      },
+                    ),
+          // 日志悬浮面板
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 160,
+            child: Container(
+              color: Colors.black.withOpacity(0.9),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "JS执行日志",
+                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                      TextButton(
+                        onPressed: () => AppLogService.instance.clear(),
+                        style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(40, 20)),
+                        child: const Text("清空", style: TextStyle(color: Colors.cyanAccent, fontSize: 11)),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Colors.grey, height: 1),
+                  Expanded(
+                    child: AnimatedBuilder(
+                      animation: AppLogService.instance,
+                      builder: (_, __) {
+                        final logs = AppLogService.instance.logs;
+                        return ListView.builder(
+                          reverse: true,
+                          itemCount: logs.length,
+                          itemBuilder: (_, idx) {
+                            final line = logs[logs.length - 1 - idx];
+                            return Text(
+                              line,
+                              style: const TextStyle(color: Colors.white70, fontSize: 10, height: 1.2),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
+          ),
+        ],
+      ),
     );
   }
 }
