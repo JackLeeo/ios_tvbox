@@ -100,7 +100,6 @@ class SpiderManager {
   SpiderSource? get currentSource => _currentSource;
   bool get hasSource => _sourceList.isNotEmpty && _currentSource != null;
 
-  // 空初始化，兼容调用
   Future<void> init() async {}
 
   Future<void> addSource(SpiderSource source) async {
@@ -131,7 +130,6 @@ class SpiderManager {
     }
   }
 
-  // 统一字段兼容，解决测试源数据解析问题
   Future<List<VideoModel>> getHomeContent({bool filter = false}) async {
     final r = await execute("homeContent", [filter]);
     final list = r['list'] as List;
@@ -165,7 +163,6 @@ class SpiderManager {
     }).toList();
   }
 
-  // Type1 接口源处理
   Future<Map<String, dynamic>> _executeType1(String method, List<dynamic> args) async {
     final source = _currentSource!;
     final Map<String, dynamic> params = {};
@@ -178,7 +175,6 @@ class SpiderManager {
     return Map<String, dynamic>.from(response);
   }
 
-  // Type2 XPath源处理
   Future<Map<String, dynamic>> _executeType2(String method, List<dynamic> args) async {
     final source = _currentSource!;
     final ext = source.ext ?? '';
@@ -272,10 +268,9 @@ class SpiderManager {
     }
   }
 
-  // 【核心修复】Type3 JS源处理，适配懒加载JS引擎
+  // 适配新的JS引擎
   Future<Map<String, dynamic>> _executeType3(String method, List<dynamic> args) async {
     final source = _currentSource!;
-    // 执行前确保JS引擎懒加载初始化完成，环境就绪
     await JsEngine.instance.ensureInitialized();
     return await JsEngine.instance.executeScript(source, method, args);
   }
