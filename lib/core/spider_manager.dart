@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
 import 'package:petitparser/petitparser.dart';
@@ -99,7 +100,7 @@ class SpiderManager {
   SpiderSource? get currentSource => _currentSource;
   bool get hasSource => _sourceList.isNotEmpty && _currentSource != null;
 
-  // 空初始化，兼容main.dart调用
+  // 空初始化，兼容调用
   Future<void> init() async {}
 
   Future<void> addSource(SpiderSource source) async {
@@ -164,6 +165,7 @@ class SpiderManager {
     }).toList();
   }
 
+  // Type1 接口源处理
   Future<Map<String, dynamic>> _executeType1(String method, List<dynamic> args) async {
     final source = _currentSource!;
     final Map<String, dynamic> params = {};
@@ -176,6 +178,7 @@ class SpiderManager {
     return Map<String, dynamic>.from(response);
   }
 
+  // Type2 XPath源处理
   Future<Map<String, dynamic>> _executeType2(String method, List<dynamic> args) async {
     final source = _currentSource!;
     final ext = source.ext ?? '';
@@ -269,8 +272,11 @@ class SpiderManager {
     }
   }
 
+  // 【核心修复】Type3 JS源处理，适配懒加载JS引擎
   Future<Map<String, dynamic>> _executeType3(String method, List<dynamic> args) async {
     final source = _currentSource!;
+    // 执行前确保JS引擎懒加载初始化完成，环境就绪
+    await JsEngine.instance.ensureInitialized();
     return await JsEngine.instance.executeScript(source, method, args);
   }
 }
