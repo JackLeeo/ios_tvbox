@@ -42,8 +42,12 @@ class XPathEvaluator {
     if (query.startsWith('//')) {
       final tag = query.substring(2);
       for (var n in context) {
-        if (n is Element) res.addAll(n.querySelectorAll(tag));
-        if (n is Document) res.addAll(n.querySelectorAll(tag));
+        if (n is Element) {
+          res.addAll(n.querySelectorAll(tag));
+        }
+        if (n is Document) {
+          res.addAll(n.querySelectorAll(tag));
+        }
       }
     } else if (query.startsWith('@')) {
       final an = query.substring(1);
@@ -53,11 +57,17 @@ class XPathEvaluator {
         }
       }
     } else if (query == 'text()') {
-      for (var n in context) res.addAll(n.nodes.whereType<Text>());
+      for (var n in context) {
+        res.addAll(n.nodes.whereType<Text>());
+      }
     } else {
       for (var n in context) {
-        if (n is Element) res.addAll(n.querySelectorAll(query));
-        if (n is Document) res.addAll(n.querySelectorAll(query));
+        if (n is Element) {
+          res.addAll(n.querySelectorAll(query));
+        }
+        if (n is Document) {
+          res.addAll(n.querySelectorAll(query));
+        }
       }
     }
     return res;
@@ -134,27 +144,33 @@ class SpiderManager {
     return list.map((e) => VideoModel.fromJson(e)).toList();
   }
 
-  // Type1 修复第41行致命报错
+  // Type1 修复第37行 String? -> String 致命报错
   Future<Map<String, dynamic>> _executeType1(String method, List<dynamic> args) async {
     final source = _currentSource!;
     final Map<String, dynamic> params = {};
 
-    // 非空兜底转合法String，彻底消掉 argument_type_not_assignable
-    final apiUrl = source.api ?? '';
-    if (apiUrl.isEmpty) throw Exception("数据源API地址为空");
+    // 非空兜底强转为合法String，彻底消除类型不匹配error
+    final safeApiUrl = source.api ?? '';
+    if (safeApiUrl.isEmpty) {
+      throw Exception("数据源API地址不能为空");
+    }
 
-    final response = await NetworkService.instance.get(apiUrl, queryParameters: params);
+    final response = await NetworkService.instance.get(safeApiUrl, queryParameters: params);
     return Map<String, dynamic>.from(response);
   }
 
-  // Type2 已前置兜底，删除多余?? 干掉全部dead_null_aware警告
+  // Type2 规范花括号、清理冗余判空警告
   Future<Map<String, dynamic>> _executeType2(String method, List<dynamic> args) async {
     final source = _currentSource!;
     final ext = source.ext ?? '';
-    if (ext.isEmpty) throw Exception("XPath规则为空");
+    if (ext.isEmpty) {
+      throw Exception("XPath规则配置为空");
+    }
     final rule = jsonDecode(ext);
     final api = source.api ?? '';
-    if (api.isEmpty) throw Exception("数据源API地址为空");
+    if (api.isEmpty) {
+      throw Exception("XPath数据源接口地址不能为空");
+    }
 
     final html = await NetworkService.instance.get(api);
     final doc = html_parser.parse(html);
@@ -186,13 +202,16 @@ class SpiderManager {
         final detailEva = XPathEvaluator(detailDoc);
         final detailRootRule = rule["detail_root"] ?? '';
         final detailNode = detailEva.query(detailRootRule).node;
-        if (detailNode == null) throw Exception("未找到详情数据");
+        if (detailNode == null) {
+          throw Exception("未匹配到详情根节点数据");
+        }
 
         final dnEva = XPathEvaluator(detailNode);
-        // 已前置非空兜底，直接取值，不再冗余??
         final playFromRaw = dnEva.query(rule["play_from"] ?? '').string.split(r'$$$');
         final playUrlRaw = dnEva.query(rule["play_url"] ?? '').string.split(r'$$$');
-        final playList = playUrlRaw.map((i)=>i.split('#').map((e)=>e.trim()).toList()).toList();
+        final playList = playUrlRaw.map((i) {
+          return i.split('#').map((e) => e.trim()).toList();
+        }).toList();
 
         final nameStr = dnEva.query(rule["detail_name"] ?? '').string;
         final picStr = dnEva.query(rule["detail_pic"] ?? '').attr ?? dnEva.query(rule["detail_pic"] ?? '').string;
@@ -229,7 +248,8 @@ class SpiderManager {
         final playUrl = playRes.attr ?? playRes.string;
         return {"url": playUrl, "header": {}};
 
-      default: throw Exception("XPath源暂不支持$method");
+      default:
+        throw Exception("XPath源暂不支持当前调用方法:$method");
     }
   }
 
