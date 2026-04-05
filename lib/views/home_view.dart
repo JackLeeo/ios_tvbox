@@ -272,8 +272,6 @@ class MySpider extends CatVodSpider {
                 },
               ),
             ),
-        );
-  }
-}
+    );
   }
 }
