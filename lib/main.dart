@@ -1,12 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import 'package:media_kit/media_kit.dart';
-import './views/home_view.dart';
-import './viewmodels/home_viewmodel.dart';
-import './views/source_debugger.dart';
-import './views/detail_view.dart';
-import './views/player_view.dart';
 
 void main() {
   // 第一行必须初始化引擎绑定
@@ -19,7 +12,7 @@ void main() {
     debugPrint('异常堆栈：${details.stack}');
   };
 
-  // 默认竖屏，支持横竖屏切换，适配手机端
+  // 【修正】默认竖屏，支持横竖屏切换，完全适配手机端
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -27,10 +20,7 @@ void main() {
     DeviceOrientation.landscapeRight,
   ]);
 
-  // 仅初始化无阻塞的播放器核心，其他所有功能全延后
-  MediaKit.ensureInitialized();
-
-  // 立即启动App，绝对不阻塞渲染
+  // 立即启动App，无任何阻塞初始化
   runApp(const MyApp());
 }
 
@@ -39,28 +29,46 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        // 仅注册Provider，不做任何初始化操作
-        ChangeNotifierProvider(create: (_) => HomeViewModel()),
-      ],
-      child: MaterialApp(
-        title: 'TVBox Flutter',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          brightness: Brightness.dark,
-          useMaterial3: true,
-          scaffoldBackgroundColor: const Color(0xFF121212),
+    return MaterialApp(
+      title: 'TVBox Flutter',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        brightness: Brightness.dark,
+        useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFF121212),
+      ),
+      debugShowCheckedModeBanner: false,
+      home: const TestHomePage(),
+    );
+  }
+}
+
+// 极简测试首页，无任何复杂依赖
+class TestHomePage extends StatelessWidget {
+  const TestHomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("TVBox 渲染测试")),
+      body: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 80),
+            SizedBox(height: 20),
+            Text(
+              "✅ 安全基础版渲染正常！",
+              style: TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 10),
+            Text(
+              "如果能看到这段文字，说明竖屏配置完全正常，无白屏问题",
+              style: TextStyle(fontSize: 16, color: Colors.white70),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
-        debugShowCheckedModeBanner: false,
-        // 直接显示首页，无任何前置加载逻辑
-        home: const HomeView(),
-        // 保留你所有的路由配置
-        routes: {
-          '/debug': (context) => const SourceDebugger(),
-          '/detail': (context) => const DetailView(videoId: ''),
-          '/player': (context) => const PlayerView(flag: '', id: '', title: ''),
-        },
       ),
     );
   }
