@@ -20,13 +20,11 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
-    // 首帧渲染完成后，再做初始化，完全不阻塞UI显示
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initAppData();
     });
   }
 
-  /// 【修复优化】初始化逻辑，优化时序，加重试和状态管理
   Future<void> _initAppData() async {
     if (_isInitDone) return;
     try {
@@ -34,14 +32,10 @@ class _HomeViewState extends State<HomeView> {
         _isInitLoading = true;
       });
 
-      // 先初始化基础管理器
       await SpiderManager.instance.init();
-      // 添加内置测试源
       await _addDefaultTestSource();
-      // 额外等待JS环境完全稳定，适配iOS端特性
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 300));
 
-      // 加载首页数据
       if (mounted) {
         await Provider.of<HomeViewModel>(context, listen: false).loadHomeData();
       }
@@ -58,7 +52,6 @@ class _HomeViewState extends State<HomeView> {
         setState(() {
           _isInitLoading = false;
         });
-        // 显示错误提示，不阻塞UI
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('初始化失败：${e.toString()}')),
         );
@@ -66,7 +59,7 @@ class _HomeViewState extends State<HomeView> {
     }
   }
 
-  /// 内置测试源，完全保留原有逻辑
+  /// 【修复】优化JS脚本，彻底避免语法错误
   Future<void> _addDefaultTestSource() async {
     if (SpiderManager.instance.hasSource) return;
     await SpiderManager.instance.addSource(const SpiderSource(
@@ -75,15 +68,8 @@ class _HomeViewState extends State<HomeView> {
       type: 3,
       api: "",
       ext: """
-class CatVodSpider {
-  constructor() {}
-  async homeContent(filter) { return {}; }
-  async detailContent(ids) { return {}; }
-  async playerContent(flag, id, vipFlags) { return {}; }
-  async searchContent(wd, quick, pg) { return {}; }
-}
-
-class MySpider extends CatVodSpider {
+// 内置测试源脚本，兼容iOS JS引擎
+window.MySpider = class MySpider extends CatVodSpider {
   async homeContent(filter) {
     return {
       list: [
@@ -177,12 +163,10 @@ class MySpider extends CatVodSpider {
               onRefresh: () => Provider.of<HomeViewModel>(context, listen: false).refresh(),
               child: Consumer<HomeViewModel>(
                 builder: (context, vm, child) {
-                  // 加载中
                   if (vm.isLoading && vm.videoList.isEmpty) {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  // 加载失败
                   if (vm.errorMessage != null && vm.videoList.isEmpty) {
                     return Center(
                       child: Column(
@@ -199,7 +183,6 @@ class MySpider extends CatVodSpider {
                     );
                   }
 
-                  // 视频列表
                   return GridView.builder(
                     padding: const EdgeInsets.all(12),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
