@@ -38,6 +38,9 @@ jobs:
           flutter pub get
           cd ios && pod deintegrate && pod install --repo-update --verbose
 
+      - name: 【新增关键步骤】Flutter预编译iOS项目（彻底关闭签名）
+        run: flutter build ios --release --no-codesign --config-only
+
       - name: Xcode Archive 无签名归档（开启详细日志）
         run: |
           cd ios
@@ -50,6 +53,7 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
             -verbose # 开启详细日志，定位脚本失败原因
 
       - name: Export 无签名 IPA
@@ -61,10 +65,12 @@ jobs:
             -exportOptionsPlist ../exportOptions.plist \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM=""
 
       - name: Upload unsigned IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TVBox-iOS-Unsigned-IPA
-          path: ios/build/export_unsigned/*.ipa
+          name: tvbox_unsigned_ios_ipa
+          path: ios/build/export_unsigned/Runner.ipa
+          retention-days: 30
