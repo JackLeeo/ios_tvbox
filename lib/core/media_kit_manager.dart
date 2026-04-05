@@ -1,3 +1,5 @@
+// 【修复】导入foundation，debugPrint定义在此文件中
+import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
 
 /// media_kit 懒加载管理器，彻底解决启动白屏问题
