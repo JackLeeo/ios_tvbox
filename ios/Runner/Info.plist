@@ -32,10 +32,12 @@
     
     <!-- 网络权限（允许任意加载，文档“注意事项3”） -->
     <key>NSAppTransportSecurity</key>
-    <dict>
-        <key>NSAllowsArbitraryLoads</key>
-        <true/>
-    </dict>
+<dict>
+  <key>NSAllowsArbitraryLoads</key>
+  <true/>
+  <key>NSAllowsArbitraryLoadsInWebContent</key>
+  <true/>
+</dict>
     
     <!-- 其他配置 -->
     <key>LSRequiresIPhoneOS</key>
