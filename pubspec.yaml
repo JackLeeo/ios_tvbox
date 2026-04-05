@@ -11,15 +11,15 @@ dependencies:
     sdk: flutter
   # 状态管理（官方推荐，稳定可用）
   provider: ^6.1.1
-  # 网络请求（Flutter生态最主流，稳定可用）
+  # 网络请求（Flutter生态最主流，官方verified发布）
   dio: ^5.5.0+1
-  # 【替换后】稳定JS引擎，彻底解决版本兼容问题
-  quick_js: ^0.5.1
+  # 【官方JS运行环境】Flutter官方维护，永久稳定，替代flutter_js
+  webview_flutter: ^6.1.0
   # HTML解析（Dart官方维护，永久可用）
   html: ^0.15.4
-  # 语法解析（实现XPath能力，生态顶级稳定包）
+  # 语法解析（pub.dev verified发布，稳定可用）
   petitparser: ^6.1.0
-  # 本地存储（官方维护，稳定可用）
+  # 本地存储（官方维护，verified发布）
   sqflite: ^2.3.3+1
   shared_preferences: ^2.3.2
   path_provider: ^2.1.5
