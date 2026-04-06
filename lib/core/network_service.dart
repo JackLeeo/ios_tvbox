@@ -1,42 +1,53 @@
-import 'dart:convert';
-import 'package:flutter/services.dart';
+import 'package:dio/dio.dart';
 
-class NodeJsEngine {
-  static final NodeJsEngine instance = NodeJsEngine._internal();
-  NodeJsEngine._internal();
+class NetworkService {
+  late final Dio _dio;
+  bool _isInitialized = false;
 
-  static const MethodChannel _channel = MethodChannel('com.tvbox.nodejs');
-  static bool _isInitialized = false;
+  static final NetworkService instance = NetworkService._internal();
+  NetworkService._internal();
 
-  Future<void> ensureInitialized() async {
-    if (!_isInitialized) {
-      await _channel.invokeMethod('startEngine');
-      _isInitialized = true;
+  Future<void> init() async {
+    if (_isInitialized) return;
+    _dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 30),
+        sendTimeout: const Duration(seconds: 15),
+        followRedirects: true,
+        validateStatus: (status) => status! < 500,
+      ),
+    );
+    _isInitialized = true;
+  }
+
+  // GET请求
+  Future<dynamic> get(String url, {Map<String, dynamic>? headers, Map<String, dynamic>? queryParameters}) async {
+    if (!_isInitialized) await init();
+    try {
+      final response = await _dio.get(
+        url,
+        options: headers != null ? Options(headers: headers) : null,
+        queryParameters: queryParameters,
+      );
+      return response.data;
+    } catch (e) {
+      throw Exception("网络请求失败: $e");
     }
   }
 
-  // 日志回调，外部可以注册这个回调来接收Node.js的日志
-  static Function(String)? onLog;
-
-  static Future<dynamic> _handleNativeCall(MethodCall call) async {
-    if (call.method == 'onLog') {
-      final log = call.arguments as String;
-      onLog?.call(log);
+  // POST请求
+  Future<dynamic> post(String url, {dynamic data, Map<String, dynamic>? headers}) async {
+    if (!_isInitialized) await init();
+    try {
+      final response = await _dio.post(
+        url,
+        data: data,
+        options: headers != null ? Options(headers: headers) : null,
+      );
+      return response.data;
+    } catch (e) {
+      throw Exception("网络请求失败: $e");
     }
-    return null;
-  }
-
-  Future<dynamic> executeScript(String api, String ext, String method, List<dynamic> args) async {
-    // 注册MethodChannel的消息监听，接收日志
-    _channel.setMethodCallHandler(_handleNativeCall);
-    
-    final params = args.map((e) => jsonEncode(e)).toList();
-    final result = await _channel.invokeMethod('executeScript', {
-      'api': api,
-      'ext': ext,
-      'method': method,
-      'params': params,
-    });
-    return result;
   }
 }
