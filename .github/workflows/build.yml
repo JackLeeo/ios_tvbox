@@ -22,25 +22,20 @@ jobs:
         with:
           flutter-version: '3.41.6'
           channel: stable
-          cache: false
+          cache: true # 优化：开启缓存，大幅加快后续构建速度，不影响稳定性
+
+      - name: 全量清理构建缓存（合并冗余步骤）
+        run: |
+          flutter clean
+          rm -rf ios/Pods ios/Podfile.lock ios/build .dart_tool build
+          rm -rf ~/Library/Developer/Xcode/DerivedData/*
 
       - name: 预检查（Dart静态分析）
         run: |
           flutter pub get
           flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: 强制清理所有构建缓存
-        run: |
-          flutter clean
-          rm -rf ios/Pods ios/Podfile.lock ios/build .dart_tool build
-          rm -rf ~/Library/Developer/Xcode/DerivedData/*
-
-      - name: 重新安装项目依赖
-        run: |
-          flutter pub get
-          cd ios && pod deintegrate && pod install --repo-update
-
-      - name: 验证 NodeMobile framework 结构
+      - name: 验证 NodeMobile framework 结构与项目配置
         run: |
           echo "📁 检查 ios/Frameworks 目录："
           ls -la ios/Frameworks/ || echo "目录不存在"
@@ -53,11 +48,42 @@ jobs:
             exit 1
           fi
           echo ""
-          echo "🔍 查找所有 .h 头文件："
-          find ios/Frameworks -name "*.h" 2>/dev/null || echo "未找到头文件"
+          echo "🔍 查找头文件与桥接文件："
+          find ios/Frameworks -name "*.h" 2>/dev/null || echo "未找到framework头文件"
+          if [ -f "ios/Runner/Runner-Bridging-Header.h" ]; then
+            echo "✅ 桥接头文件存在"
+            cat ios/Runner/Runner-Bridging-Header.h
+          else
+            echo "❌ 桥接头文件缺失"
+            exit 1
+          fi
 
-      - name: 无签名构建（Flutter）
-        run: flutter build ios --release --no-codesign --verbose
+      - name: 重新安装iOS依赖（核心修复：移除pod deintegrate，彻底解决一致性报错）
+        run: |
+          flutter pub get
+          cd ios
+          pod install --repo-update
+          cd ..
+
+      - name: 无签名构建（TrollStore专用，强制关闭签名）
+        run: |
+          # 先执行Flutter配置
+          flutter build ios --release --no-codesign --config-only
+          # 原生Xcode构建，强制无签名，保证TrollStore兼容
+          cd ios
+          xcodebuild -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            clean archive \
+            -archivePath $PWD/build/Runner.xcarchive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_IDENTITY="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=NO
+          # 提取构建产物
+          cp -R build/Runner.xcarchive/Products/Applications/Runner.app ../build/ios/iphoneos/
+          cd ..
 
       - name: 校验构建产物
         run: |
