@@ -1,5 +1,4 @@
 import Foundation
-import NodeMobile
 import Flutter
 
 @objc class NodeJSBridge: NSObject, FlutterPlugin {
