@@ -1,13 +1,11 @@
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
-# 项目配置，与你原有配置完全一致
 project 'Runner', {
   'Debug' => :debug,
   'Profile' => :release,
   'Release' => :release,
 }
 
-# Flutter官方标准环境适配，不改动原有逻辑
 def flutter_root
   generated_xcode_build_settings = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
   unless File.exist?(generated_xcode_build_settings)
@@ -22,23 +20,19 @@ def flutter_root
   nil
 end
 
-# Flutter官方原生配置，完全保留
 flutter_ios_podfile_setup
 
 target 'Runner' do
   use_frameworks!
   use_modular_headers!
-  # 完全保留Flutter自动依赖安装逻辑，不改动你项目原有pod依赖
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# 构建后配置，仅新增适配项，不改动原有逻辑
 post_install do |installer|
   installer.pods_project.targets.each do |target|
-    # 保留Flutter官方原生构建配置，完全不改动
     flutter_additional_ios_build_settings(target)
     
-    # 仅屏蔽volume_controller的废弃API警告，不影响任何功能
+    # 屏蔽volume_controller废弃API警告
     if target.name == 'volume_controller'
       target.build_configurations.each do |config|
         config.build_settings['WARNING_CFLAGS'] ||= ['$(inherited)']
@@ -46,15 +40,12 @@ post_install do |installer|
       end
     end
     
-    # 全局兼容配置，适配GitHub Actions CI无签名打包环境
+    # 全局兼容配置
     target.build_configurations.each do |config|
-      # 与你项目原有最低版本一致
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
       config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
-      # 适配无签名打包，关闭CI环境的签名校验
       config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
       config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
-      # 解决模拟器架构兼容问题
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
     end
   end
