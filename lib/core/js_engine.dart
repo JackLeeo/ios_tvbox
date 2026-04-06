@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter_js/flutter_js.dart';
+import 'package:flutter_js/javascript_runtime.dart';
+import 'package:flutter_js/js_eval_result.dart';
+
 import 'dart:convert';
 import 'dart:async';
 import '../models/spider_source.dart';
 import './network_service.dart';
 class JsEngine {
-  FlutterJs? _jsEngine;
-  JsRuntime? _runtime;
+  JavascriptRuntime? _jsEngine;
+
   bool _isInitialized = false;
   bool _isEnvReady = false;
   // 单例模式
@@ -32,7 +36,6 @@ class JsEngine {
       debugPrint('🚀 开始初始化Node.js JS引擎...');
       // 1. 创建FlutterJS引擎和运行时
       _jsEngine = getJavascriptRuntime();
-      _runtime = _jsEngine!.runtime;
       // 2. 注册Dart方法到JS，提供http工具
       _jsEngine!.registerAsyncFunction('dartHttpGet', (args) async {
         final url = args[0] as String;
@@ -259,7 +262,7 @@ class JsEngine {
     if (_jsEngine != null) {
       _jsEngine!.dispose();
       _jsEngine = null;
-      _runtime = null;
+      _jsEngine = null;
     }
     _isInitialized = false;
     _isEnvReady = false;
