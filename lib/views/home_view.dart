@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../core/log_service.dart';
-import '../core/spider_manager.dart';
+import '../models/video_model.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -83,7 +83,7 @@ class _HomeViewState extends State<HomeView> {
             right: 0,
             height: 160,
             child: Container(
-              color: Colors.black.withOpacity(0.9),
+              color: Colors.black.withValues(alpha: 0.9), // 修复弃用API
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
