@@ -33,7 +33,7 @@ target 'Runner' do
   use_modular_headers!
 
   # 直接从 GitHub 仓库引用 nodejs-mobile，使用 master 分支（确保 CI 可访问）
-  pod 'nodejs-mobile', :git => 'https://github.com/nodejs-mobile/nodejs-mobile.git', :branch => 'master'
+  pod 'nodejs-mobile', :git => 'https://github.com/nodejs-mobile/nodejs-mobile.git', :branch => 'main'
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
