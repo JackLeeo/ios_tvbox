@@ -1,5 +1,5 @@
 # 新增：添加nodejs-mobile的自定义源，同时保留默认的CocoaPods源
-source 'https://github.com/nodejs-mobile/nodejs-mobile'
+source 'https://github.com/nodejs-mobile/nodejs-mobile.git'
 source 'https://cdn.cocoapods.org/'
 
 # Uncomment this line to define a global platform for your project
