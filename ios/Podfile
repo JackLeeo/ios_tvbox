@@ -1,22 +1,17 @@
-# CocoaPods官方CDN源，解决CI源访问超时问题
+# CocoaPods官方CDN源
 source 'https://cdn.cocoapods.org/'
 
-# 全局平台最低版本，和你的项目完全对齐
 platform :ios, '13.0'
 
-# 关闭CocoaPods统计，加速CI构建
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
-# 跳过Git LFS大文件拉取，避免构建卡顿
 ENV['GIT_LFS_SKIP_SMUDGE'] = '1'
 
-# 项目基础配置，完全保留你的原有设置
 project 'Runner', {
   'Debug' => :debug,
   'Profile' => :release,
   'Release' => :release,
 }
 
-# Flutter官方标准写法：从SDK加载pod辅助脚本，永远不会出现文件缺失
 def flutter_root
   generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
   unless File.exist?(generated_xcode_build_settings_path)
@@ -30,53 +25,101 @@ def flutter_root
   raise "FLUTTER_ROOT 未找到，请重新执行 flutter pub get"
 end
 
-# 从Flutter SDK加载官方辅助脚本，完全兼容3.41.6版本
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
-# Flutter官方Pod初始化
 flutter_ios_podfile_setup
 
 target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
-  # 安装Flutter所有插件依赖，官方标准写法
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
-# post_install只处理Pods配置，完全不碰主项目pbxproj，彻底杜绝一致性报错
 post_install do |installer|
-  # 处理所有Pods目标的配置
   installer.pods_project.targets.each do |target|
-    # 保留Flutter官方原生构建配置
     flutter_additional_ios_build_settings(target)
 
-    # 全局统一配置，完全保留你的原有逻辑
     target.build_configurations.each do |config|
-      # 统一iOS最低版本
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
-      # 无签名打包核心配置，强制关闭签名校验
       config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
       config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
       config.build_settings['CODE_SIGN_IDENTITY'] = ''
       config.build_settings['DEVELOPMENT_TEAM'] = ''
-      # 追加系统框架，不覆盖原有配置，兼容media_kit
+
       existing_ldflags = config.build_settings['OTHER_LDFLAGS'] || ['$(inherited)']
       required_frameworks = '-framework AVFoundation -framework CoreMedia -framework CoreVideo'
       unless existing_ldflags.join(' ').include?(required_frameworks)
         config.build_settings['OTHER_LDFLAGS'] = [existing_ldflags, required_frameworks].flatten.uniq
       end
-      # 解决模拟器架构兼容问题
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
     end
   end
 
-  # Pods项目全局无签名配置，完全保留你的原有逻辑
   installer.pods_project.build_configurations.each do |config|
     config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
     config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
     config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
     config.build_settings['CODE_SIGN_IDENTITY'] = ''
     config.build_settings['DEVELOPMENT_TEAM'] = ''
+  end
+
+  # ========== 手动添加必要的配置到 Runner 工程（仅一次） ==========
+  # 由于之前错误是修改主工程导致的，但为了集成 NodeMobile，仍需添加搜索路径和桥接文件。
+  # 以下代码只修改一次，且不会破坏主工程结构。
+  app_project_path = 'Runner.xcodeproj'
+  if File.exist?(app_project_path)
+    app_project = Xcodeproj::Project.open(app_project_path)
+    main_target = app_project.targets.find { |t| t.name == 'Runner' }
+
+    # 添加 Framework 搜索路径
+    main_target.build_configurations.each do |config|
+      fw_paths = config.build_settings['FRAMEWORK_SEARCH_PATHS'] || '$(inherited)'
+      unless fw_paths.include?('$(PROJECT_DIR)/Frameworks')
+        config.build_settings['FRAMEWORK_SEARCH_PATHS'] = "#{fw_paths} $(PROJECT_DIR)/Frameworks"
+      end
+
+      # 添加 Header 搜索路径
+      header_path = '$(PROJECT_DIR)/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework/Headers'
+      header_paths = config.build_settings['HEADER_SEARCH_PATHS'] || '$(inherited)'
+      unless header_paths.include?(header_path)
+        config.build_settings['HEADER_SEARCH_PATHS'] = "#{header_paths} #{header_path}"
+      end
+
+      # 设置桥接头文件
+      config.build_settings['SWIFT_OBJC_BRIDGING_HEADER'] = 'Runner/Runner-Bridging-Header.h'
+    end
+
+    # 添加 NodeMobile.xcframework 到 Frameworks 组并嵌入
+    frameworks_group = app_project.main_group.find_subpath('Frameworks', true)
+    framework_path = File.join(File.dirname(__FILE__), 'Frameworks', 'NodeMobile.xcframework')
+    if File.exist?(framework_path)
+      existing_ref = frameworks_group.files.find { |f| f.path == framework_path }
+      unless existing_ref
+        framework_ref = frameworks_group.new_file(framework_path)
+        main_target.frameworks_build_phase.add_file_reference(framework_ref)
+        embed_phase = main_target.copy_files_build_phases.find { |bp| bp.name == 'Embed Frameworks' }
+        unless embed_phase
+          embed_phase = main_target.new_copy_files_build_phase('Embed Frameworks')
+          embed_phase.dst_subfolder_spec = '10'
+        end
+        embed_phase.add_file_reference(framework_ref)
+      end
+    end
+
+    # 添加 NodeJSBridge.swift 到编译源
+    swift_file = File.join(File.dirname(__FILE__), 'Runner', 'NodeJSBridge.swift')
+    if File.exist?(swift_file)
+      group = app_project.main_group.find_subpath('Runner', true)
+      file_ref = group.files.find { |f| f.real_path.to_s == swift_file }
+      unless file_ref
+        file_ref = group.new_reference(swift_file)
+      end
+      unless main_target.source_build_phase.files.any? { |f| f.file_ref == file_ref }
+        main_target.source_build_phase.add_file_reference(file_ref)
+      end
+    end
+
+    app_project.save
   end
 end
