@@ -4,27 +4,27 @@ import '../models/video_model.dart';
 
 class HomeViewModel extends ChangeNotifier {
   List<VideoModel> videoList = [];
-  bool isLoading = false;
-  String? errorMessage;
+  bool loading = false;
+  String? error;
 
-  // 加载首页数据
-  Future<void> loadHomeData() async {
+  // 加载首页数据（方法名更新为视图使用的loadData）
+  Future<void> loadData() async {
     if (!SpiderManager.instance.hasSource) {
-      errorMessage = "暂无可用数据源";
+      error = "暂无可用数据源";
       notifyListeners();
       return;
     }
 
     _setLoading(true);
-    errorMessage = null;
+    error = null;
 
     try {
       videoList = await SpiderManager.instance.getHomeContent();
       if (videoList.isEmpty) {
-        errorMessage = "暂无视频数据";
+        error = "暂无视频数据";
       }
     } catch (e) {
-      errorMessage = "数据加载失败：${e.toString()}";
+      error = "数据加载失败：${e.toString()}";
       debugPrint("首页数据加载失败: $e");
     } finally {
       _setLoading(false);
@@ -33,11 +33,11 @@ class HomeViewModel extends ChangeNotifier {
 
   // 刷新数据
   Future<void> refresh() async {
-    await loadHomeData();
+    await loadData();
   }
 
   void _setLoading(bool value) {
-    isLoading = value;
+    loading = value;
     notifyListeners();
   }
 }
