@@ -1,160 +1,268 @@
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_js/flutter_js.dart';
 import 'dart:convert';
 import 'dart:async';
 import '../models/spider_source.dart';
 import './network_service.dart';
-import './log_service.dart';
-
 class JsEngine {
-  WebViewController? _controller;
-  bool _ready = false;
-  final Map<String, Completer<dynamic>> _tasks = {};
-
+  FlutterJs? _jsEngine;
+  JsRuntime? _runtime;
+  bool _isInitialized = false;
+  bool _isEnvReady = false;
+  // 单例模式
   static final JsEngine instance = JsEngine._internal();
   JsEngine._internal();
-
-  final _log = AppLogService.instance.log;
-
+  /// 懒加载初始化，仅在需要时执行
   Future<void> ensureInitialized() async {
-    if (_ready && _controller != null) {
-      _log("JS引擎：已就绪，直接复用");
-      return;
+    if (_isInitialized && _runtime != null && _isEnvReady) return;
+    await init();
+  }
+  /// 初始化JS引擎，基于FlutterJS（Node.js环境）替代WebView
+  Future<void> init({int retryCount = 0}) async {
+    // 最大重试3次
+    if (retryCount > 3) {
+      throw Exception("JS引擎初始化失败，已重试3次");
     }
-    _log("JS引擎：开始初始化流程");
-    await _init();
-  }
-
-  Future<void> _init() async {
-    try {
+    // 重复初始化防护
+    if (_isInitialized) {
       await dispose();
-      _log("销毁旧JS引擎实例");
-
-      final completer = Completer<void>();
-      _controller = WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..setBackgroundColor(Colors.transparent)
-        ..addJavaScriptChannel(
-          "jsResult",
-          onMessageReceived: (msg) {
-            try {
-              final data = jsonDecode(msg.message);
-              final taskId = data['id'];
-              final success = data['ok'] == true;
-              if (success) {
-                _log("JS任务[$taskId]：执行成功");
-              } else {
-                _log("JS任务[$taskId]：执行失败 - ${data['error'] ?? '未知错误'}");
-              }
-              final task = _tasks.remove(taskId);
-              if (success) {
-                task?.complete(data['data']);
-              } else {
-                task?.completeError(Exception(data['error'] ?? 'JS执行失败'));
-              }
-            } catch (e) {
-              _log("JS回调解析异常：$e");
-            }
+    }
+    _isEnvReady = false;
+    try {
+      debugPrint('🚀 开始初始化Node.js JS引擎...');
+      // 1. 创建FlutterJS引擎和运行时
+      _jsEngine = getJavascriptRuntime();
+      _runtime = _jsEngine!.runtime;
+      // 2. 注册Dart方法到JS，提供http工具
+      _jsEngine!.registerAsyncFunction('dartHttpGet', (args) async {
+        final url = args[0] as String;
+        final headers = args.length > 1 ? Map<String, dynamic>.from(args[1]) : <String, dynamic>{};
+        try {
+          final result = await NetworkService.instance.get(url, headers: headers);
+          return jsonEncode(result);
+        } catch (e) {
+          throw Exception(e.toString());
+        }
+      });
+      _jsEngine!.registerAsyncFunction('dartHttpPost', (args) async {
+        final url = args[0] as String;
+        final data = args.length > 1 ? args[1] : null;
+        final headers = args.length > 2 ? Map<String, dynamic>.from(args[2]) : <String, dynamic>{};
+        try {
+          final result = await NetworkService.instance.post(url, data: data, headers: headers);
+          return jsonEncode(result);
+        } catch (e) {
+          throw Exception(e.toString());
+        }
+      });
+      // 3. 初始化JS全局环境，兼容浏览器和Node.js两种环境的脚本
+      final initScript = """
+        // 全局变量兼容，同时支持浏览器环境和Node.js环境的脚本
+        globalThis = global;
+        window = global;
+        document = {
+          createElement: () => ({
+            setAttribute: () => {},
+            src: '',
+            onload: null
+          }),
+          getElementById: () => null
+        };
+        navigator = { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15' };
+        module = { exports: {} };
+        exports = module.exports;
+        console = {
+          log: (...args) => { print('[JS] ' + args.map(a => JSON.stringify(a)).join(' ')); },
+          error: (...args) => { print('[JS Error] ' + args.map(a => JSON.stringify(a)).join(' ')); }
+        };
+        // 全局错误捕获
+        if (process) {
+          process.on('uncaughtException', function(err) {
+            console.error('全局JS错误:', err);
+          });
+        }
+        // 爬虫基类
+        if (global.CatVodSpider) delete global.CatVodSpider;
+        global.CatVodSpider = class CatVodSpider {
+          constructor() {}
+          async homeContent(filter) { return {}; }
+          async homeVideoContent() { return {}; }
+          async categoryContent(tid, pg, filter, extend) { return {}; }
+          async detailContent(ids) { return {}; }
+          async searchContent(wd, quick, pg) { return {}; }
+          async playerContent(flag, id, vipFlags) { return {}; }
+          async liveContent() { return {}; }
+        }
+        // 全局http工具，兼容原来的接口
+        const http = {
+          get: async function(url, headers) {
+            const result = await dartHttpGet(url, headers || {});
+            return JSON.parse(result);
           },
-        )
-        ..setNavigationDelegate(
-          NavigationDelegate(
-            onPageFinished: (_) {
-              _log("WebView运行环境：加载完成");
-              completer.complete();
-            },
-            onWebResourceError: (err) {
-              _log("WebView加载错误：${err.description}");
-              completer.completeError(err);
-            },
-          ),
-        )
-        ..loadHtmlString('''
-<!DOCTYPE html>
-<html>
-<body style="background:#000;margin:0"></body>
-<script>
-window.onerror = function(msg){
-  try{jsResult.postMessage(JSON.stringify({id:_lastId,ok:false,error:msg}))}catch(e){}
-};
-async function run(taskId,code){
-  _lastId = taskId;
-  try{
-    let result = await eval(code);
-    jsResult.postMessage(JSON.stringify({id:taskId,ok:true,data:result}));
-  }catch(e){
-    jsResult.postMessage(JSON.stringify({id:taskId,ok:false,error:e.toString()}));
-  }
-}
-</script>
-</html>
-''');
-
-      _log("等待WebView环境初始化...");
-      await completer.future.timeout(const Duration(seconds: 25));
-      _ready = true;
-      _log("JS引擎：初始化完成，可执行脚本");
+          post: async function(url, data, headers) {
+            const result = await dartHttpPost(url, data, headers || {});
+            return JSON.parse(result);
+          }
+        };
+        global.http = http;
+        window.http = http;
+        // 暴露执行脚本的方法，兼容原来的接口
+        global.tvboxRunScript = async function(scriptCode) {
+          try {
+            // 先清理旧的爬虫类
+            if (global.MySpider) delete global.MySpider;
+            // 执行脚本
+            let fn;
+            if (typeof scriptCode === 'function') {
+              fn = scriptCode;
+            } else {
+              fn = new Function(scriptCode);
+            }
+            const result = await fn();
+            return {
+              success: true,
+              data: result
+            };
+          } catch (e) {
+            console.error('脚本执行失败:', e);
+            return {
+              success: false,
+              data: e.toString()
+            };
+          }
+        };
+        // 健康检查工具
+        global.tvboxHealthCheck = function() {
+          return "ok";
+        };
+      """;
+      // 执行初始化脚本
+      final initResult = _jsEngine!.evaluate(initScript);
+      if (initResult.isError) {
+        throw Exception("初始化JS环境失败: ${initResult.error}");
+      }
+      debugPrint('✅ JS环境初始化脚本执行完成');
+      // 检查环境是否就绪
+      final checkResult = _jsEngine!.evaluate("typeof tvboxRunScript !== 'undefined' && typeof tvboxHealthCheck !== 'undefined'");
+      if (checkResult.isError || checkResult.stringResult != 'true') {
+        throw Exception("TVBox运行环境加载失败，核心函数未就绪");
+      }
+      final healthResult = _jsEngine!.evaluate("tvboxHealthCheck()");
+      if (healthResult.stringResult != 'ok') {
+        throw Exception("JS引擎健康检查失败");
+      }
+      // 标记初始化完成
+      _isInitialized = true;
+      _isEnvReady = true;
+      debugPrint('✅ Node.js JS引擎全量初始化完成，所有功能就绪');
     } catch (e) {
-      _ready = false;
-      _log("JS引擎初始化失败：$e");
+      _isInitialized = false;
+      _isEnvReady = false;
+      debugPrint('❌ JS引擎初始化失败: $e');
+      await Future.delayed(const Duration(milliseconds: 300));
+      await init(retryCount: retryCount + 1);
+    }
+  }
+  /// 执行原始JS代码，带异常捕获
+  Future<dynamic> executeRawScript(String script) async {
+    if (!_isEnvReady || _jsEngine == null) {
+      throw Exception("JS引擎未就绪");
+    }
+    try {
+      final result = _jsEngine!.evaluate(script);
+      if (result.isError) {
+        throw Exception(result.error);
+      }
+      return result.stringResult;
+    } catch (e) {
+      debugPrint('❌ 原始JS执行失败: $e');
       rethrow;
     }
   }
-
-  Future<dynamic> executeScript(SpiderSource source, String method, List<dynamic> args) async {
-    _log("================ 执行爬虫方法 ================");
-    _log("执行方法：$method | 数据源：${source.name}");
-
-    await ensureInitialized();
-    if (!_ready || _controller == null) {
-      _log("错误：JS引擎未就绪");
-      throw Exception("JS引擎未就绪");
+  /// 执行爬虫脚本，基于Node.js JS引擎
+  Future<dynamic> executeScript(SpiderSource source, String method, List<dynamic> args, {int retryCount = 0}) async {
+    // 最大重试2次
+    const maxRetry = 2;
+    if (retryCount > maxRetry) {
+      throw Exception("JS脚本执行失败，已重试$maxRetry次");
     }
-
-    final taskId = DateTime.now().millisecondsSinceEpoch.toString();
-    _log("生成任务ID：$taskId");
-    final completer = Completer<dynamic>();
-    _tasks[taskId] = completer;
-
+    // 执行前确保引擎就绪
+    await ensureInitialized();
+    if (!_isEnvReady || _jsEngine == null) {
+      throw Exception("JS引擎环境未就绪，请重试");
+    }
     try {
-      if (source.ext?.isNotEmpty == true) {
-        _log("开始加载内置爬虫脚本");
-        await _controller!.runJavaScript(source.ext!);
-        await Future.delayed(const Duration(milliseconds: 200));
-        _log("爬虫脚本：加载完成");
-      } else {
-        _log("无内置爬虫脚本，跳过加载");
+      debugPrint('🚀 开始执行爬虫方法: $method, 重试次数: $retryCount');
+      // 1. 加载远程JS脚本
+      if (source.api?.isNotEmpty == true) {
+        debugPrint('📥 开始加载远程JS脚本');
+        final remoteScript = await NetworkService.instance.get(source.api!);
+        final evalResult = _jsEngine!.evaluate(remoteScript);
+        if (evalResult.isError) {
+          throw Exception("远程JS脚本加载失败: ${evalResult.error}");
+        }
+        debugPrint('✅ 远程JS脚本加载完成');
       }
-
-      final argStr = args.map((e) => jsonEncode(e)).join(',');
-      final execCode = "new MySpider().$method($argStr)";
-      _log("拼接执行代码完成，准备调用JS");
-
-      _log("提交JS执行任务：$taskId");
-      await _controller!.runJavaScript("run('$taskId', `$execCode`)");
-
-      _log("等待JS执行结果（超时30秒）...");
-      return await completer.future.timeout(
-        const Duration(seconds: 30),
-        onTimeout: () {
-          _log("任务[$taskId]：执行超时（30秒无响应）");
-          throw Exception("JS脚本执行超时");
-        },
-      );
+      // 2. 加载本地爬虫脚本
+      if (source.ext?.isNotEmpty == true) {
+        debugPrint('📥 开始加载本地爬虫脚本');
+        // 先检查MySpider是否已存在，避免重复加载
+        final hasSpiderResult = _jsEngine!.evaluate("typeof global.MySpider !== 'undefined'");
+        if (hasSpiderResult.stringResult != 'true') {
+          final evalResult = _jsEngine!.evaluate(source.ext!);
+          if (evalResult.isError) {
+            throw Exception("本地JS脚本加载失败: ${evalResult.error}");
+          }
+          debugPrint('✅ 本地爬虫脚本加载完成');
+        } else {
+          debugPrint('ℹ️ 本地爬虫脚本已存在，跳过加载');
+        }
+      }
+      // 3. 序列化参数，生成执行代码
+      final argsJson = args.map((e) => jsonEncode(e)).join(',');
+      final execCode = """
+        (async () => {
+          const spider = new MySpider();
+          const result = await spider.$method($argsJson);
+          return tvboxRunScript(() => result);
+        })();
+      """;
+      debugPrint('📝 执行代码: $execCode');
+      // 4. 执行脚本
+      final execResult = _jsEngine!.evaluate(execCode);
+      if (execResult.isError) {
+        throw Exception("JS执行失败: ${execResult.error}");
+      }
+      // 解析结果
+      final resultJson = jsonDecode(execResult.stringResult);
+      final bool success = resultJson['success'];
+      final dynamic data = resultJson['data'];
+      if (!success) {
+        throw Exception(data ?? 'JS脚本执行失败');
+      }
+      debugPrint('✅ 脚本执行成功');
+      return data;
     } catch (e) {
-      _tasks.remove(taskId);
-      _log("任务执行异常：$e");
-      throw Exception("JS脚本执行异常：$e");
+      debugPrint('❌ 脚本执行异常: $e, 重试次数: $retryCount');
+      // 超时或错误自动重试
+      if (retryCount < maxRetry) {
+        await dispose();
+        await Future.delayed(const Duration(milliseconds: 300));
+        return await executeScript(source, method, args, retryCount: retryCount + 1);
+      }
+      await dispose();
+      throw Exception("JS脚本执行异常: ${e.toString()}");
     }
   }
-
+  /// 释放资源
   Future<void> dispose() async {
-    _log("释放JS引擎资源");
-    for (final c in _tasks.values) {
-      if (!c.isCompleted) c.completeError("engine disposed");
+    if (_jsEngine != null) {
+      _jsEngine!.dispose();
+      _jsEngine = null;
+      _runtime = null;
     }
-    _tasks.clear();
-    _controller = null;
-    _ready = false;
+    _isInitialized = false;
+    _isEnvReady = false;
+    debugPrint('♻️ JS引擎资源已释放');
   }
 }
