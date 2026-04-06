@@ -22,19 +22,24 @@ class _HomeViewState extends State<HomeView> {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<HomeViewModel>();
+    // 提取为局部变量，让Dart可以进行类型提升，解决空安全问题
+    final loading = vm.loading;
+    final error = vm.error;
+    final videoList = vm.videoList;
+
     return Scaffold(
       appBar: AppBar(title: const Text("TVBox")),
       body: Stack(
         children: [
           // 主内容区域
-          vm.loading
+          loading
               ? const Center(child: CircularProgressIndicator())
-              : vm.error != null
+              : error != null
                   ? Center(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Text(
-                          vm.error, // 移除多余的!，流分析已确定此处error非空
+                          error, // 局部变量已被Dart提升为非空类型，无需!也不会有警告
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: Colors.red),
                         ),
@@ -48,9 +53,9 @@ class _HomeViewState extends State<HomeView> {
                         crossAxisSpacing: 8,
                         mainAxisSpacing: 8,
                       ),
-                      itemCount: vm.videoList.length,
+                      itemCount: videoList.length,
                       itemBuilder: (ctx, i) {
-                        final item = vm.videoList[i];
+                        final item = videoList[i];
                         return Card(
                           clipBehavior: Clip.hardEdge,
                           child: Column(
