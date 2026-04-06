@@ -1,4 +1,5 @@
 name: Build iOS TVBox Release (TrollStore专用无签名版)
+
 on:
   push:
     branches: [ main ]
@@ -13,7 +14,7 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: 锁定Xcode稳定兼容版本（彻底规避版本兼容问题）
+      - name: 锁定Xcode稳定兼容版本
         run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
 
       - name: Setup Flutter SDK
@@ -21,69 +22,71 @@ jobs:
         with:
           flutter-version: '3.41.6'
           channel: stable
-          cache: false # 关闭缓存，彻底避免旧缓存污染
+          cache: false
 
-      - name: 【关键预检查】Dart静态分析（提前发现编译错误）
+      - name: 预检查（Dart静态分析）
         run: |
           flutter pub get
           flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: 【强制全量清理】彻底清除所有构建缓存（解决缓存污染）
+      - name: 强制清理所有构建缓存
         run: |
           flutter clean
-          rm -rf ios/Pods
-          rm -rf ios/Podfile.lock
-          rm -rf ios/build
-          rm -rf .dart_tool
-          rm -rf build
+          rm -rf ios/Pods ios/Podfile.lock ios/build .dart_tool build
           rm -rf ~/Library/Developer/Xcode/DerivedData/*
-
-      - name: 更新 CocoaPods 到最新版
-        run: sudo gem install cocoapods
-
-      - name: 安装 xcodeproj gem（供 Podfile 修改工程文件使用）
-        run: gem install xcodeproj
 
       - name: 重新安装项目依赖
         run: |
           flutter pub get
           cd ios && pod deintegrate && pod install --repo-update
 
-      - name: 【核心无签名构建】Flutter直接编译无签名APP（彻底绕开Xcode签名校验）
+      - name: 验证 NodeMobile framework 结构
+        run: |
+          echo "📁 检查 ios/Frameworks 目录："
+          ls -la ios/Frameworks/ || echo "目录不存在"
+          echo ""
+          echo "📂 递归列出 NodeMobile.xcframework 内容："
+          if [ -d "ios/Frameworks/NodeMobile.xcframework" ]; then
+            ls -R ios/Frameworks/NodeMobile.xcframework/
+          else
+            echo "❌ NodeMobile.xcframework 未找到！"
+            exit 1
+          fi
+          echo ""
+          echo "🔍 查找所有 .h 头文件："
+          find ios/Frameworks -name "*.h" 2>/dev/null || echo "未找到头文件"
+
+      - name: 无签名构建（Flutter）
         run: flutter build ios --release --no-codesign --verbose
 
-      - name: 【校验核心产物】确认无签名APP构建成功
+      - name: 校验构建产物
         run: |
           if [ -d "build/ios/iphoneos/Runner.app" ]; then
-            echo "✅ 无签名APP构建成功，产物有效"
+            echo "✅ 无签名APP构建成功"
             ls -la build/ios/iphoneos/Runner.app
           else
-            echo "❌ 无签名APP构建失败，提前终止流程"
+            echo "❌ 构建失败：未找到 Runner.app"
             exit 1
           fi
 
-      - name: 【打包IPA】生成TrollStore专用无签名IPA
+      - name: 打包 IPA（TrollStore 专用）
         run: |
-          # 创建IPA标准目录结构
           mkdir -p Payload
-          # 把编译好的无签名APP复制到Payload目录
           cp -r build/ios/iphoneos/Runner.app Payload/
-          # 打包成TrollStore兼容的IPA文件
           zip -r tvbox_trollstore_unsigned.ipa Payload/
-          # 清理临时目录
           rm -rf Payload/
 
-      - name: 【最终校验】确认IPA生成成功
+      - name: 校验 IPA 生成
         run: |
           if [ -f "tvbox_trollstore_unsigned.ipa" ]; then
-            echo "✅ TrollStore专用无签名IPA生成成功"
+            echo "✅ IPA 生成成功"
             ls -la tvbox_trollstore_unsigned.ipa
           else
-            echo "❌ IPA生成失败"
+            echo "❌ IPA 生成失败"
             exit 1
           fi
 
-      - name: 上传无签名IPA产物
+      - name: 上传无签名 IPA 产物
         uses: actions/upload-artifact@v4
         with:
           name: tvbox_trollstore_unsigned_ipa
