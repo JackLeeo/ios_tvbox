@@ -165,13 +165,11 @@ class SpiderManager {
   // Type1 接口源处理
   Future<Map<String, dynamic>> _executeType1(String method, List<dynamic> args) async {
     final source = _currentSource!;
-    final Map<String, dynamic> params = {};
-
     final safeApi = source.api ?? '';
     if (safeApi.isEmpty) {
       throw Exception("数据源API地址不能为空");
     }
-    final response = await NetworkService.instance.get(safeApi, queryParameters: params);
+    final response = await NetworkService.instance.get(safeApi);
     return Map<String, dynamic>.from(response);
   }
 
@@ -272,7 +270,7 @@ class SpiderManager {
   // 适配新的JS引擎
   Future<Map<String, dynamic>> _executeType3(String method, List<dynamic> args) async {
     final source = _currentSource!;
-    await JsEngine.instance.ensureInitialized();
-    return await JsEngine.instance.executeScript(source, method, args);
+    await NodeJsEngine.instance.ensureInitialized();
+    return await NodeJsEngine.instance.executeScript(source.api ?? "", source.ext ?? "", method, args);
   }
 }
