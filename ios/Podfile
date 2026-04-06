@@ -52,15 +52,13 @@ post_install do |installer|
   app_project = Xcodeproj::Project.open('Runner.xcodeproj')
   main_target = app_project.targets.find { |t| t.name == 'Runner' }
 
-  # 添加 Framework 和 Header 搜索路径
+  # 1. 添加 Framework 和 Header 搜索路径
   main_target.build_configurations.each do |config|
-    # Framework 搜索路径
     fw_paths = config.build_settings['FRAMEWORK_SEARCH_PATHS'] || '$(inherited)'
     unless fw_paths.include?('$(PROJECT_DIR)/Frameworks')
       config.build_settings['FRAMEWORK_SEARCH_PATHS'] = "#{fw_paths} $(PROJECT_DIR)/Frameworks"
     end
 
-    # Header 搜索路径（指向 framework 的 Headers 目录）
     header_path = '$(PROJECT_DIR)/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework/Headers'
     header_paths = config.build_settings['HEADER_SEARCH_PATHS'] || '$(inherited)'
     unless header_paths.include?(header_path)
@@ -68,7 +66,7 @@ post_install do |installer|
     end
   end
 
-  # 添加 framework 引用和嵌入
+  # 2. 添加 framework 引用和嵌入
   frameworks_group = app_project.main_group.find_subpath('Frameworks', true)
   framework_path = File.join(__dir__, 'Frameworks', 'NodeMobile.xcframework')
   if File.exist?(framework_path)
@@ -83,13 +81,34 @@ post_install do |installer|
       end
       embed_phase.add_file_reference(framework_ref)
     end
-    app_project.save
-    puts "✅ 已添加 NodeMobile.xcframework"
   else
     puts "⚠️ 未找到 NodeMobile.xcframework，请确认路径 ios/Frameworks/"
   end
-  # ===================================================
 
+  # ========== 设置桥接头文件 ==========
+  bridging_header = 'Runner/Runner-Bridging-Header.h'
+  main_target.build_configurations.each do |config|
+    config.build_settings['SWIFT_OBJC_BRIDGING_HEADER'] = bridging_header
+  end
+
+  # ========== 添加 NodeJSBridge.swift 到编译源 ==========
+  swift_file = File.join(__dir__, 'Runner', 'NodeJSBridge.swift')
+  if File.exist?(swift_file)
+    group = app_project.main_group.find_subpath('Runner', true)
+    file_ref = group.files.find { |f| f.real_path.to_s == swift_file }
+    unless file_ref
+      file_ref = group.new_reference(swift_file)
+    end
+    unless main_target.source_build_phase.files.any? { |f| f.file_ref == file_ref }
+      main_target.source_build_phase.add_file_reference(file_ref)
+    end
+  else
+    puts "⚠️ 未找到 NodeJSBridge.swift，请确认文件存在"
+  end
+
+  app_project.save
+
+  # ========== 其他原有配置 ==========
   installer.pods_project.build_configurations.each do |config|
     config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
     config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
