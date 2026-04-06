@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
 import 'package:petitparser/petitparser.dart';
-import './js_engine.dart';
+import './nodejs_engine.dart';
 import '../models/spider_source.dart';
 import '../models/video_model.dart';
 import './network_service.dart';
@@ -267,10 +267,11 @@ class SpiderManager {
     }
   }
 
-  // 适配新的JS引擎
+  // 适配新的JS引擎，type3爬虫的处理
+  // 优化：NodeJsEngine内部已经保证了引擎只启动一次，无需额外处理
   Future<Map<String, dynamic>> _executeType3(String method, List<dynamic> args) async {
     final source = _currentSource!;
     await NodeJsEngine.instance.ensureInitialized();
-    return await NodeJsEngine.instance.executeScript(source.api ?? "", source.ext ?? "", method, args);
+    return await NodeJsEngine.instance.executeScript(source.api ?? '', source.ext ?? '', method, args);
   }
 }
