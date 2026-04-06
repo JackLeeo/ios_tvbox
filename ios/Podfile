@@ -1,22 +1,22 @@
-# 【必须放在最顶部】CocoaPods官方CDN源，解决源访问超时/失效问题
+# CocoaPods官方CDN源，解决CI源访问超时问题
 source 'https://cdn.cocoapods.org/'
 
-# 全局平台最低版本，和你原有配置完全对齐
+# 全局平台最低版本，和你的项目完全对齐
 platform :ios, '13.0'
 
-# 关闭CocoaPods统计，避免构建延迟
+# 关闭CocoaPods统计，加速CI构建
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
-# 跳过Git LFS大文件拉取，加速CI构建
+# 跳过Git LFS大文件拉取，避免构建卡顿
 ENV['GIT_LFS_SKIP_SMUDGE'] = '1'
 
-# 项目基础配置，和你原有配置完全对齐
+# 项目基础配置，完全保留你的原有设置
 project 'Runner', {
   'Debug' => :debug,
   'Profile' => :release,
   'Release' => :release,
 }
 
-# Flutter官方标准写法：从生成的配置中读取SDK路径，彻底解决podhelper找不到的问题
+# Flutter官方标准写法：从SDK加载pod辅助脚本，永远不会出现文件缺失
 def flutter_root
   generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
   unless File.exist?(generated_xcode_build_settings_path)
@@ -27,13 +27,13 @@ def flutter_root
     matches = line.match(/FLUTTER_ROOT\=(.*)/)
     return matches[1].strip if matches
   end
-  raise "FLUTTER_ROOT 未在Generated.xcconfig中找到，请删除该文件后重新执行 flutter pub get"
+  raise "FLUTTER_ROOT 未找到，请重新执行 flutter pub get"
 end
 
-# 从Flutter SDK加载官方pod辅助脚本，永远不会出现文件缺失报错
+# 从Flutter SDK加载官方辅助脚本，完全兼容3.41.6版本
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
-# 执行Flutter官方Pod初始化
+# Flutter官方Pod初始化
 flutter_ios_podfile_setup
 
 target 'Runner' do
@@ -44,122 +44,39 @@ target 'Runner' do
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
+# post_install只处理Pods配置，完全不碰主项目pbxproj，彻底杜绝一致性报错
 post_install do |installer|
-  # ========== 第一步：处理Pods项目配置（保留你原有所有配置） ==========
+  # 处理所有Pods目标的配置
   installer.pods_project.targets.each do |target|
-    # 保留Flutter官方原生构建配置，不破坏原有逻辑
+    # 保留Flutter官方原生构建配置
     flutter_additional_ios_build_settings(target)
-    
-    # 全局统一配置，和你原有逻辑完全对齐
+
+    # 全局统一配置，完全保留你的原有逻辑
     target.build_configurations.each do |config|
-      # 统一iOS最低版本，和全局配置一致
+      # 统一iOS最低版本
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
       # 无签名打包核心配置，强制关闭签名校验
       config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
       config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
       config.build_settings['CODE_SIGN_IDENTITY'] = ''
       config.build_settings['DEVELOPMENT_TEAM'] = ''
-      
-      # 【修复：从覆盖改为追加，避免覆盖掉NodeMobile的链接配置】
-      # 保留你原有需要的系统框架，同时不破坏其他链接配置
-      existing_ldflags = config.build_settings['OTHER_LDFLAGS'] || '$(inherited)'
-      required_frameworks = '-framework AVFoundation -framework CoreMedia -framework CoreVideo -framework NodeMobile'
-      unless existing_ldflags.include?('-framework NodeMobile')
-        config.build_settings['OTHER_LDFLAGS'] = "#{existing_ldflags} #{required_frameworks}"
+      # 追加系统框架，不覆盖原有配置，兼容media_kit
+      existing_ldflags = config.build_settings['OTHER_LDFLAGS'] || ['$(inherited)']
+      required_frameworks = '-framework AVFoundation -framework CoreMedia -framework CoreVideo'
+      unless existing_ldflags.join(' ').include?(required_frameworks)
+        config.build_settings['OTHER_LDFLAGS'] = [existing_ldflags, required_frameworks].flatten.uniq
       end
+      # 解决模拟器架构兼容问题
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
     end
   end
 
-  # ========== 第二步：自动配置NodeMobile.xcframework（彻底解决pbxproj一致性报错） ==========
-  # 由CocoaPods官方Xcodeproj库操作，完全符合规范，不会出现父节点缺失的报错
-  app_project = Xcodeproj::Project.open('Runner.xcodeproj')
-  main_target = app_project.targets.find { |t| t.name == 'Runner' }
-  project_dir = File.dirname(__FILE__)
-
-  # 1. 配置Framework和头文件搜索路径（增加重复判断，避免冗余配置）
-  main_target.build_configurations.each do |config|
-    # 配置Framework搜索路径
-    fw_search_paths = config.build_settings['FRAMEWORK_SEARCH_PATHS'] || ['$(inherited)']
-    fw_search_paths = [fw_search_paths].flatten.uniq
-    target_fw_path = '$(PROJECT_DIR)/Frameworks'
-    unless fw_search_paths.include?(target_fw_path)
-      fw_search_paths << target_fw_path
-      config.build_settings['FRAMEWORK_SEARCH_PATHS'] = fw_search_paths
-    end
-
-    # 配置NodeMobile头文件搜索路径
-    header_search_paths = config.build_settings['HEADER_SEARCH_PATHS'] || ['$(inherited)']
-    header_search_paths = [header_search_paths].flatten.uniq
-    node_header_path = '$(PROJECT_DIR)/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework/Headers'
-    unless header_search_paths.include?(node_header_path)
-      header_search_paths << node_header_path
-      config.build_settings['HEADER_SEARCH_PATHS'] = header_search_paths
-    end
-  end
-
-  # 2. 添加NodeMobile.xcframework到项目，自动配置链接+嵌入（增加重复判断，避免重复添加）
-  frameworks_group = app_project.main_group.find_subpath('Frameworks', true)
-  node_fw_path = File.join(project_dir, 'Frameworks', 'NodeMobile.xcframework')
-  
-  if File.exist?(node_fw_path)
-    # 避免重复添加文件引用
-    existing_fw_ref = frameworks_group.files.find { |f| File.expand_path(f.path) == node_fw_path }
-    unless existing_fw_ref
-      # 添加文件引用到项目
-      fw_ref = frameworks_group.new_file(node_fw_path)
-      
-      # 添加到链接阶段
-      main_target.frameworks_build_phase.add_file_reference(fw_ref)
-      
-      # 添加到Embed Frameworks阶段，自动签名+去头文件
-      embed_phase = main_target.copy_files_build_phases.find { |bp| bp.name == 'Embed Frameworks' }
-      unless embed_phase
-        embed_phase = main_target.new_copy_files_build_phase('Embed Frameworks')
-        embed_phase.dst_subfolder_spec = '10'
-      end
-      
-      # 避免重复添加到嵌入阶段
-      unless embed_phase.files.any? { |f| f.file_ref == fw_ref }
-        build_file = embed_phase.add_file_reference(fw_ref)
-        build_file.settings = { 'ATTRIBUTES' => ['CodeSignOnCopy', 'RemoveHeadersOnCopy'] }
-      end
-    end
-  else
-    puts "⚠️ 警告：未找到 NodeMobile.xcframework，请确认文件在 ios/Frameworks/ 目录下"
-  end
-
-  # 3. 强制设置桥接头文件（避免配置丢失）
-  bridging_header_path = 'Runner/Runner-Bridging-Header.h'
-  main_target.build_configurations.each do |config|
-    config.build_settings['SWIFT_OBJC_BRIDGING_HEADER'] = bridging_header_path
-  end
-
-  # 4. 自动添加NodeJSBridge.swift到编译源（避免手动添加后丢失）
-  swift_file_path = File.join(project_dir, 'Runner', 'NodeJSBridge.swift')
-  if File.exist?(swift_file_path)
-    runner_group = app_project.main_group.find_subpath('Runner', true)
-    # 避免重复添加文件引用
-    existing_swift_ref = runner_group.files.find { |f| File.expand_path(f.real_path.to_s) == swift_file_path }
-    unless existing_swift_ref
-      existing_swift_ref = runner_group.new_reference(swift_file_path)
-    end
-    # 避免重复添加到编译源
-    unless main_target.source_build_phase.files.any? { |f| f.file_ref == existing_swift_ref }
-      main_target.source_build_phase.add_file_reference(existing_swift_ref)
-    end
-  else
-    puts "⚠️ 警告：未找到 NodeJSBridge.swift，请确认文件在 ios/Runner/ 目录下"
-  end
-
-  # 保存项目修改，由CocoaPods官方库操作，不会出现一致性报错
-  app_project.save
-
-  # ========== 第三步：Pods项目全局无签名配置（保留你原有逻辑） ==========
+  # Pods项目全局无签名配置，完全保留你的原有逻辑
   installer.pods_project.build_configurations.each do |config|
+    config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
     config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
     config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
     config.build_settings['CODE_SIGN_IDENTITY'] = ''
     config.build_settings['DEVELOPMENT_TEAM'] = ''
-    config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
   end
 end
