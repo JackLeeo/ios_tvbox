@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/home_viewmodel.dart';
 import '../core/log_service.dart';
-import '../models/video_model.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -35,7 +34,7 @@ class _HomeViewState extends State<HomeView> {
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Text(
-                          vm.error!,
+                          vm.error, // 移除多余的!，流分析已确定此处error非空
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: Colors.red),
                         ),
