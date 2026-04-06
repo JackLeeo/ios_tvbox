@@ -1,13 +1,8 @@
-# 新增：添加nodejs-mobile的自定义源，同时保留默认的CocoaPods源
-source 'https://github.com/nodejs-mobile/nodejs-mobile.git'
 source 'https://cdn.cocoapods.org/'
 
-# Uncomment this line to define a global platform for your project
 platform :ios, '13.0'
 
-# CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
-# 新增：media_kit iOS端必需配置，解决视频解码播放失败
 ENV['GIT_LFS_SKIP_SMUDGE'] = '1'
 
 project 'Runner', {
@@ -33,31 +28,68 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 
 flutter_ios_podfile_setup
 
-  pod 'nodejs-mobile'
-
+target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
+  # 注意：nodejs-mobile 不再通过 CocoaPods 集成，改为手动链接 framework
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
-    # 保留你原有：所有Pod的最低部署版本与项目保持一致
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
-      # 强制关闭所有Pod库的签名校验，和主项目无签名配置完全一致
       config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
       config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
       config.build_settings['CODE_SIGN_IDENTITY'] = ''
       config.build_settings['DEVELOPMENT_TEAM'] = ''
-      # 新增：media_kit iOS端兼容配置，解决视频解码播放报错
       config.build_settings['OTHER_LDFLAGS'] = '$(inherited) -framework AVFoundation -framework CoreMedia -framework CoreVideo'
     end
   end
 
-  # 关闭项目全局签名校验，彻底杜绝依赖层签名冲突
+  # ========== 手动添加 nodejs-mobile.xcframework ==========
+  app_project = Xcodeproj::Project.open('Runner.xcodeproj')
+  main_target = app_project.targets.find { |t| t.name == 'Runner' }
+
+  # 查找或创建 Frameworks 组
+  frameworks_group = app_project.main_group.find_subpath('Frameworks', true)
+  frameworks_group.clear  # 避免重复添加
+
+  framework_path = File.join(__dir__, 'Frameworks', 'nodejs-mobile.xcframework')
+  if File.exist?(framework_path)
+    framework_ref = frameworks_group.new_file(framework_path)
+    # 添加到 Link Binary With Libraries
+    main_target.frameworks_build_phase.add_file_reference(framework_ref)
+    # 添加到 Embed Frameworks
+    embed_phase = main_target.copy_files_build_phases.find { |bp| bp.name == 'Embed Frameworks' }
+    unless embed_phase
+      embed_phase = main_target.new_copy_files_build_phase('Embed Frameworks')
+      embed_phase.dst_subfolder_spec = '10' # 10 表示 Frameworks 目录
+    end
+    embed_phase.add_file_reference(framework_ref)
+    puts "✅ 已添加并嵌入 nodejs-mobile.xcframework"
+  else
+    puts "⚠️ 未找到 nodejs-mobile.xcframework，请检查路径 ios/Frameworks/"
+  end
+
+  # ========== 设置 Objective-C Bridging Header ==========
+  bridging_header_path = 'Runner/Runner-Bridging-Header.h'
+  bridging_header_file = File.join(__dir__, 'Runner', 'Runner-Bridging-Header.h')
+  if File.exist?(bridging_header_file)
+    main_target.build_configurations.each do |config|
+      config.build_settings['SWIFT_OBJC_BRIDGING_HEADER'] = bridging_header_path
+    end
+    puts "✅ 已设置 Bridging Header: #{bridging_header_path}"
+  else
+    puts "⚠️ 未找到桥接头文件，请创建 #{bridging_header_file}"
+  end
+
+  app_project.save
+  # =======================================================
+
+  # 关闭项目全局签名校验
   installer.pods_project.build_configurations.each do |config|
     config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
     config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
