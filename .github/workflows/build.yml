@@ -40,7 +40,10 @@ jobs:
 
       - name: 更新 CocoaPods 到最新版
         run: sudo gem install cocoapods
-  
+
+      - name: 安装 xcodeproj gem（供 Podfile 修改工程文件使用）
+        run: gem install xcodeproj
+
       - name: 重新安装项目依赖
         run: |
           flutter pub get
