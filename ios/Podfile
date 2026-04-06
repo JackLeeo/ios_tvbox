@@ -48,32 +48,30 @@ post_install do |installer|
     end
   end
 
-  # ========== 手动添加 nodejs-mobile.xcframework 并配置搜索路径 ==========
+  # ========== 手动添加 NodeMobile.xcframework ==========
   app_project = Xcodeproj::Project.open('Runner.xcodeproj')
   main_target = app_project.targets.find { |t| t.name == 'Runner' }
 
-  # 1. 添加 Framework Search Paths 和 Header Search Paths
+  # 添加 Framework 和 Header 搜索路径
   main_target.build_configurations.each do |config|
     # Framework 搜索路径
-    framework_paths = config.build_settings['FRAMEWORK_SEARCH_PATHS'] || '$(inherited)'
-    unless framework_paths.include?('$(PROJECT_DIR)/Frameworks')
-      config.build_settings['FRAMEWORK_SEARCH_PATHS'] = "#{framework_paths} $(PROJECT_DIR)/Frameworks"
+    fw_paths = config.build_settings['FRAMEWORK_SEARCH_PATHS'] || '$(inherited)'
+    unless fw_paths.include?('$(PROJECT_DIR)/Frameworks')
+      config.build_settings['FRAMEWORK_SEARCH_PATHS'] = "#{fw_paths} $(PROJECT_DIR)/Frameworks"
     end
 
-    # 头文件搜索路径（指向 framework 内的 Headers 目录）
-    # 注意：xcframework 内部可能有多平台，我们选择 ios-arm64 下的 framework
-    header_path = '$(PROJECT_DIR)/Frameworks/nodejs-mobile.xcframework/ios-arm64/nodejs_mobile.framework/Headers'
+    # Header 搜索路径（指向 framework 的 Headers 目录）
+    header_path = '$(PROJECT_DIR)/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework/Headers'
     header_paths = config.build_settings['HEADER_SEARCH_PATHS'] || '$(inherited)'
     unless header_paths.include?(header_path)
       config.build_settings['HEADER_SEARCH_PATHS'] = "#{header_paths} #{header_path}"
     end
   end
 
-  # 2. 添加 framework 引用和嵌入
+  # 添加 framework 引用和嵌入
   frameworks_group = app_project.main_group.find_subpath('Frameworks', true)
-  framework_path = File.join(__dir__, 'Frameworks', 'nodejs-mobile.xcframework')
+  framework_path = File.join(__dir__, 'Frameworks', 'NodeMobile.xcframework')
   if File.exist?(framework_path)
-    # 避免重复添加
     existing_ref = frameworks_group.files.find { |f| f.path == framework_path }
     unless existing_ref
       framework_ref = frameworks_group.new_file(framework_path)
@@ -81,16 +79,16 @@ post_install do |installer|
       embed_phase = main_target.copy_files_build_phases.find { |bp| bp.name == 'Embed Frameworks' }
       unless embed_phase
         embed_phase = main_target.new_copy_files_build_phase('Embed Frameworks')
-        embed_phase.dst_subfolder_spec = '10' # Frameworks
+        embed_phase.dst_subfolder_spec = '10'
       end
       embed_phase.add_file_reference(framework_ref)
     end
     app_project.save
-    puts "✅ 已配置 nodejs-mobile.xcframework"
+    puts "✅ 已添加 NodeMobile.xcframework"
   else
-    puts "⚠️ 未找到 nodejs-mobile.xcframework，请确认路径 ios/Frameworks/"
+    puts "⚠️ 未找到 NodeMobile.xcframework，请确认路径 ios/Frameworks/"
   end
-  # ===============================================================
+  # ===================================================
 
   installer.pods_project.build_configurations.each do |config|
     config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
