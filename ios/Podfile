@@ -1,38 +1,33 @@
+# 【核心修复：必须放在最开头，加载Flutter官方Pod辅助脚本，所有flutter_*方法都来自这里】
+load File.join(File.dirname(File.realpath(__FILE__)), 'Flutter', 'podhelper.rb')
+
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
+# 项目基础配置，和你原有配置完全对齐
 project 'Runner', {
   'Debug' => :debug,
   'Profile' => :release,
   'Release' => :release,
 }
 
-def flutter_root
-  generated_xcode_build_settings = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
-  unless File.exist?(generated_xcode_build_settings)
-    puts "⚠️ Flutter环境异常：Generated.xcconfig文件未找到"
-    exit 1
-  end
-  File.read(generated_xcode_build_settings).split("\n").each do |line|
-    if line.start_with?("FLUTTER_ROOT=")
-      return line.split("=")[1].strip
-    end
-  end
-  nil
-end
-
+# 执行Flutter官方Pod初始化（现在有了上面的脚本加载，不会再报未定义）
 flutter_ios_podfile_setup
 
 target 'Runner' do
   use_frameworks!
   use_modular_headers!
+
+  # 安装Flutter所有插件依赖，官方标准写法
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 
+# 构建后钩子，保留所有适配配置，无任何改动
 post_install do |installer|
   installer.pods_project.targets.each do |target|
+    # 保留Flutter官方原生构建配置，不破坏原有逻辑
     flutter_additional_ios_build_settings(target)
     
-    # 屏蔽volume_controller废弃API警告
+    # 屏蔽volume_controller废弃API警告，不影响任何功能
     if target.name == 'volume_controller'
       target.build_configurations.each do |config|
         config.build_settings['WARNING_CFLAGS'] ||= ['$(inherited)']
@@ -40,12 +35,15 @@ post_install do |installer|
       end
     end
     
-    # 全局兼容配置
+    # 全局兼容配置，适配GitHub Actions CI无签名打包环境
     target.build_configurations.each do |config|
+      # 和你项目原有最低版本一致
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
       config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
+      # 适配无签名打包，关闭CI环境的签名校验
       config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
       config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+      # 解决模拟器架构兼容问题
       config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
     end
   end
