@@ -14,7 +14,7 @@ dependencies:
   # 网络请求（Flutter生态最主流，官方verified发布）
   dio: ^5.5.0+1
   # 【替代WebView的JS引擎，支持Node.js环境执行JS爬虫脚本】
-  flutter_js: ^0.8.0
+  flutter_js: ^0.8.7
   # HTML解析（Dart官方维护，永久可用）
   html: ^0.15.4
   # 语法解析（pub.dev verified发布，稳定可用）
