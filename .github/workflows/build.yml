@@ -18,7 +18,7 @@ jobs:
         run: git lfs pull
 
       - name: 锁定Xcode稳定兼容版本
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+        run: sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
 
       - name: Setup Flutter SDK
         uses: subosito/flutter-action@v2
