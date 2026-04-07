@@ -1,11 +1,9 @@
 import Foundation
 import Flutter
-
 // 无需 import NodeMobile，桥接头文件已暴露
-
 @objc class NodeJSBridge: NSObject, FlutterPlugin {
     private var channel: FlutterMethodChannel?
-    private var nodeRunner: NodeJSMobileRunner?
+    private var nodeRunner: NodeMobileRunner?
     
     public static func register(with registrar: FlutterPluginRegistrar) {
         let instance = NodeJSBridge()
@@ -35,7 +33,7 @@ import Flutter
     
     private func startNodeEngine(result: FlutterResult) {
         let mainJsPath = Bundle.main.path(forResource: "main", ofType: "js") ?? ""
-        NodeJSMobile.startEngine(withArguments: [mainJsPath])
+        NodeMobile.startEngine(withArguments: [mainJsPath])
         result(true)
     }
     
@@ -61,13 +59,13 @@ import Flutter
             }
         }
         pendingCallbacks[callbackId] = (result, timer)
-        NodeJSMobile.channel?.send(jsonString)
+        NodeMobile.channel?.send(jsonString)
     }
     
     private var pendingCallbacks: [String: (FlutterResult, Timer?)] = [:]
     
     private func setupNodeListener() {
-        NodeJSMobile.channel?.setEventListener { [weak self] message in
+        NodeMobile.channel?.setEventListener { [weak self] message in
             guard let self = self, let msg = message,
                   let data = msg.data(using: .utf8),
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
