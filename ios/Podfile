@@ -34,9 +34,8 @@ target 'Runner' do
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   
-  # ✅ 核心：用CocoaPods自带的能力添加本地framework，自动处理所有配置
-  # 自动帮你添加到Link Binary、Embed Frameworks，再也不会有一致性错误了！
-  vendored_frameworks 'Frameworks/NodeMobile.xcframework'
+  # ✅ 用本地pod的方式引入framework，CocoaPods会自动处理所有配置
+  pod 'NodeMobile', :path => 'Frameworks'
 end
 
 post_install do |installer|
@@ -52,7 +51,7 @@ post_install do |installer|
     end
   end
 
-  # 只保留桥接头文件的设置，其他的都不需要手动处理了
+  # 只保留桥接头文件的设置
   app_project_path = 'Runner.xcodeproj'
   if File.exist?(app_project_path)
     app_project = Xcodeproj::Project.open(app_project_path)
