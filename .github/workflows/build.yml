@@ -18,41 +18,31 @@ jobs:
           flutter-version: '3.41.6'
           channel: stable
           cache: true
-      - run: |
-        flutter clean
-        rm -rf ios/Pods ios/Podfile.lock ios/build .dart_tool build
-        rm -rf ~/Library/Developer/Xcode/DerivedData/*
-        rm -rf ~/Library/Developer/Xcode/ModuleCache.noindex
-      - run: |
-        flutter pub get
-        flutter analyze --no-fatal-infos --no-fatal-warnings
-      - run: |
-        cp -r ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework ios/Frameworks/
-        rm -rf ios/Frameworks/NodeMobile.xcframework
-        find ios/Frameworks/NodeMobile.framework -name "module.modulemap" -delete
-        sed -i '' 's/NodeMobile.xcframework/NodeMobile.framework/g' ios/Frameworks/NodeMobile.podspec
-        echo "#ifndef Runner_Bridging_Header_h
+      - run: flutter clean
+      - run: rm -rf ios/Pods ios/Podfile.lock ios/build .dart_tool build
+      - run: rm -rf ~/Library/Developer/Xcode/DerivedData/*
+      - run: rm -rf ~/Library/Developer/Xcode/ModuleCache.noindex
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: cp -r ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework ios/Frameworks/
+      - run: rm -rf ios/Frameworks/NodeMobile.xcframework
+      - run: find ios/Frameworks/NodeMobile.framework -name "module.modulemap" -delete
+      - run: sed -i '' 's/NodeMobile.xcframework/NodeMobile.framework/g' ios/Frameworks/NodeMobile.podspec
+      - run: echo "#ifndef Runner_Bridging_Header_h
 #define Runner_Bridging_Header_h
 #import \"GeneratedPluginRegistrant.h\"
 @class NodeJSBridge;
 #endif" > ios/Runner/Runner-Bridging-Header.h
-      - run: |
-        flutter pub get
-        cd ios
-        pod deintegrate
-        pod install --repo-update
-        cd ..
-      - run: |
-        flutter build ios --release --no-codesign --config-only
-        cd ios
-        xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release clean archive -archivePath $PWD/build/Runner.xcarchive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_IDENTITY="" AD_HOC_CODE_SIGNING_ALLOWED=NO
-        cp -R build/Runner.xcarchive/Products/Applications/Runner.app ../build/ios/iphoneos/
-        cd ..
-      - run: |
-        mkdir -p Payload
-        cp -r build/ios/iphoneos/Runner.app Payload/
-        zip -r tvbox_trollstore_unsigned.ipa Payload/
-        rm -rf Payload/
+      - run: flutter pub get
+      - run: cd ios && pod deintegrate
+      - run: cd ios && pod install --repo-update
+      - run: flutter build ios --release --no-codesign --config-only
+      - run: cd ios && xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release clean archive -archivePath $PWD/build/Runner.xcarchive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_IDENTITY="" AD_HOC_CODE_SIGNING_ALLOWED=NO
+      - run: cp -R ios/build/Runner.xcarchive/Products/Applications/Runner.app build/ios/iphoneos/
+      - run: mkdir -p Payload
+      - run: cp -r build/ios/iphoneos/Runner.app Payload/
+      - run: zip -r tvbox_trollstore_unsigned.ipa Payload/
+      - run: rm -rf Payload/
       - uses: actions/upload-artifact@v4
         with:
           name: tvbox_trollstore_unsigned_ipa
