@@ -36,12 +36,12 @@ jobs:
 
       - name: 把xcframework拆成普通真机framework，彻底绕开Xcode解压路径问题
         run: |
-          # 把真机的framework从xcframework里拆出来，直接用普通framework，避免Xcode解压到临时目录
+          # 把真机的framework从xcframework里拆出来，直接用普通framework
           cp -r ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework ios/Frameworks/
           # 删除原来的xcframework，避免Xcode自动识别解压
           rm -rf ios/Frameworks/NodeMobile.xcframework
-          # 动态修改Podfile，把pod的路径指向普通framework
-          sed -i '' 's/pod '\''NodeMobile'\'', :path => '\''Frameworks'\''/pod '\''NodeMobile'\'', :path => '\''Frameworks\/NodeMobile.framework'\''/' ios/Podfile
+          # 动态修改NodeMobile的podspec，把vendored_frameworks从xcframework改成普通framework
+          sed -i '' 's/NodeMobile.xcframework/NodeMobile.framework/' ios/Frameworks/NodeMobile.podspec
           echo "✅ 已将NodeMobile从xcframework转为普通真机framework，彻底避免路径变化"
 
       - name: 预检查（Dart静态分析）
