@@ -54,11 +54,33 @@ post_install do |installer|
     app_project = Xcodeproj::Project.open(app_project_path)
     main_target = app_project.targets.find { |t| t.name == 'Runner' }
     if main_target
-      # 创建或获取 Frameworks 组
+      # 创建或获取 Frameworks 组，移除危险的清空操作，避免破坏现有项目结构
       frameworks_group = app_project.main_group.find_subpath('Frameworks', true)
-      frameworks_group.clear if frameworks_group
       framework_path = 'Frameworks/NodeMobile.xcframework'
       if File.exist?(framework_path)
+        # 先清理旧的同名引用，避免重复添加
+        # 清理组里的旧文件
+        old_file_ref = frameworks_group.files.find { |f| f.path == framework_path }
+        if old_file_ref
+          frameworks_group.remove_child(old_file_ref)
+        end
+        # 清理build phase里的旧引用
+        main_target.frameworks_build_phase.files.each do |bf|
+          if bf.file&.path == framework_path
+            main_target.frameworks_build_phase.remove_build_file(bf)
+          end
+        end
+        main_target.copy_files_build_phases.each do |bp|
+          if bp.name == 'Embed Frameworks'
+            bp.files.each do |bf|
+              if bf.file&.path == framework_path
+                bp.remove_build_file(bf)
+              end
+            end
+          end
+        end
+
+        # 添加新的引用
         framework_ref = frameworks_group.new_file(framework_path)
         # 添加到 Link Binary With Libraries
         main_target.frameworks_build_phase.add_file_reference(framework_ref)
