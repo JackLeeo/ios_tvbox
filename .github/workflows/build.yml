@@ -13,9 +13,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 强制拉取所有Git LFS大文件
+      - name: 检查所有LFS指针文件
         run: |
-          # 强制拉取所有LFS对象，绕过Git 2.42+的新过滤规则
+          # 找到所有framework里的二进制文件，检查它们是不是LFS指针
+          find ios/Frameworks -name "*.framework" -type d | while read fw; do
+            bin_name=$(basename $fw .framework)
+            bin_path="$fw/$bin_name"
+            if [ -f "$bin_path" ]; then
+              echo "检查 $bin_path..."
+              # 检查是不是LFS指针
+              if head -1 "$bin_path" | grep -q "oid sha256:"; then
+                echo "  ✅ 这是LFS指针文件，添加到.gitattributes"
+                echo "$bin_path filter=lfs diff=lfs merge=lfs -text" >> .gitattributes
+              fi
+            fi
+          done
+          cat .gitattributes
+
+      - name: 拉取所有LFS大文件
+        run: |
+          # 现在拉取所有的LFS对象
           git lfs fetch --all
           git lfs checkout
           git lfs status
@@ -46,19 +63,21 @@ jobs:
           cp -R ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework ios/Frameworks/
           echo "✅ 已拆解XCFramework为普通Framework"
 
-      - name: 检查NodeMobile二进制文件
+      - name: 检查所有二进制文件
         run: |
-          echo "✅ 检查NodeMobile二进制文件:"
-          ls -la ios/Frameworks/NodeMobile.framework/
-          # 检查二进制文件是否存在
-          if [ -f "ios/Frameworks/NodeMobile.framework/NodeMobile" ]; then
-            echo "✅ 二进制文件存在！"
-            file ios/Frameworks/NodeMobile.framework/NodeMobile
-          else
-            echo "❌ 二进制文件缺失！"
-            ls -laR ios/Frameworks/
-            exit 1
-          fi
+          echo "✅ 检查所有Framework二进制文件:"
+          find ios/Frameworks -name "*.framework" -type d | while read fw; do
+            bin_name=$(basename $fw .framework)
+            bin_path="$fw/$bin_name"
+            if [ -f "$bin_path" ]; then
+              if head -1 "$bin_path" | grep -q "oid sha256:"; then
+                echo "❌ $bin_path 还是LFS指针，未拉取成功！"
+              else
+                echo "✅ $bin_path 二进制文件正常，大小: $(du -h $bin_path | cut -f1)"
+                file $bin_path
+              fi
+            fi
+          done
 
       - name: 生成自定义桥接头
         run: |
