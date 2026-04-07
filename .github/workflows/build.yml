@@ -72,6 +72,8 @@ jobs:
         run: |
           flutter build ios --release --no-codesign --config-only
           cd ios
+          # 直接用当前的绝对路径，彻底解决搜索路径问题
+          FRAMEWORK_PATH="$PWD/Frameworks"
           xcodebuild -workspace Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
@@ -82,7 +84,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_IDENTITY="" \
             AD_HOC_CODE_SIGNING_ALLOWED=NO \
-            FRAMEWORK_SEARCH_PATHS="\$(inherited) \$(SRCROOT)/Frameworks"
+            FRAMEWORK_SEARCH_PATHS="\$(inherited) $FRAMEWORK_PATH"
           cp -R build/Runner.xcarchive/Products/Applications/Runner.app ../build/ios/iphoneos/
 
       - name: 打包IPA
