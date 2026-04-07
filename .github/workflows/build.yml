@@ -35,25 +35,17 @@ jobs:
           flutter pub get
           flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: 验证 NodeMobile framework 结构
+      - name: 验证 NodeMobile 头文件位置
         run: |
-          echo "📁 检查 ios/Frameworks 目录："
-          ls -la ios/Frameworks/
-          echo ""
-          echo "📂 检查Headers目录："
-          ls -la "ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework/Headers/"
-
-      - name: 手动修改桥接头文件导入路径
-        run: |
-          BRIDGING_HEADER="ios/Runner/Runner-Bridging-Header.h"
-          # 你给的头文件真实相对路径
-          RELATIVE_PATH="../Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework/Headers/NodeMobile.h"
-          
-          sed -i.bak "s|#import <NodeMobile/NodeMobile.h>|#import \"$RELATIVE_PATH\"|g" "$BRIDGING_HEADER"
-          rm -f "$BRIDGING_HEADER.bak"
-          
-          echo "✅ 桥接头文件修改完成，新内容："
-          cat "$BRIDGING_HEADER"
+          HEADER_PATH="ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework/Headers/NodeMobile.h"
+          if [ -f "$HEADER_PATH" ]; then
+            echo "✅ 头文件位置正确: $HEADER_PATH"
+            cat "$HEADER_PATH"
+          else
+            echo "❌ 头文件未找到，检查路径: $HEADER_PATH"
+            ls -laR ios/Frameworks/
+            exit 1
+          fi
 
       - name: 重新安装iOS依赖
         run: |
