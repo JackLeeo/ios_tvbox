@@ -22,9 +22,9 @@ jobs:
         with:
           flutter-version: '3.41.6'
           channel: stable
-          cache: true # 优化：开启缓存，大幅加快后续构建速度，不影响稳定性
+          cache: true
 
-      - name: 全量清理构建缓存（合并冗余步骤）
+      - name: 全量清理构建缓存
         run: |
           flutter clean
           rm -rf ios/Pods ios/Podfile.lock ios/build .dart_tool build
@@ -35,74 +35,37 @@ jobs:
           flutter pub get
           flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: 验证 NodeMobile framework 结构与项目配置
+      - name: 验证 NodeMobile framework 结构
         run: |
           echo "📁 检查 ios/Frameworks 目录："
-          ls -la ios/Frameworks/ || echo "目录不存在"
+          ls -la ios/Frameworks/
           echo ""
-          echo "📂 递归列出 NodeMobile.xcframework 内容："
-          if [ -d "ios/Frameworks/NodeMobile.xcframework" ]; then
-            ls -R ios/Frameworks/NodeMobile.xcframework/
-          else
-            echo "❌ NodeMobile.xcframework 未找到！"
-            exit 1
-          fi
-          echo ""
-          echo "🔍 查找头文件与桥接文件："
-          find ios/Frameworks -name "*.h" 2>/dev/null || echo "未找到framework头文件"
-          if [ -f "ios/Runner/Runner-Bridging-Header.h" ]; then
-            echo "✅ 桥接头文件存在"
-            cat ios/Runner/Runner-Bridging-Header.h
-          else
-            echo "❌ 桥接头文件缺失"
-            exit 1
-          fi
-          if [ -f "NodeMobile.h" ]; then
-            echo "✅ 单独的NodeMobile.h存在，准备复制到framework中"
-          fi
+          echo "📂 检查Headers目录："
+          ls -la "ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework/Headers/"
 
-           - name: 修复头文件路径（自动查找并复制头文件）
+      - name: 手动修改桥接头文件导入路径
         run: |
-          # 自动搜索整个项目里的NodeMobile.h，不管它在哪都能找到
-          NODE_H_PATH=$(find . -name "NodeMobile.h" -type f | head -n 1)
-          if [ -z "$NODE_H_PATH" ]; then
-            echo "❌ 错误：整个项目里都找不到NodeMobile.h！"
-            echo "当前项目所有文件列表："
-            ls -laR
-            exit 1
-          fi
-          echo "✅ 找到NodeMobile.h，真实路径: $NODE_H_PATH"
+          BRIDGING_HEADER="ios/Runner/Runner-Bridging-Header.h"
+          # 你给的头文件真实相对路径
+          RELATIVE_PATH="../Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework/Headers/NodeMobile.h"
           
-          echo "📝 正在把NodeMobile.h复制到xcframework的Headers目录..."
-          # 遍历所有平台的framework目录
-          for platform_dir in ios/Frameworks/NodeMobile.xcframework/*/; do
-            headers_dir="${platform_dir}NodeMobile.framework/Headers"
-            mkdir -p "$headers_dir"
-            cp "$NODE_H_PATH" "$headers_dir/"
-            echo "✅ 已复制到: $headers_dir"
-            # 验证复制是否成功
-            if [ -f "${headers_dir}/NodeMobile.h" ]; then
-              echo "✅ 验证：头文件已成功写入 ${headers_dir}/NodeMobile.h"
-            else
-              echo "❌ 错误：头文件复制失败到 ${headers_dir}"
-              exit 1
-            fi
-          done
+          sed -i.bak "s|#import <NodeMobile/NodeMobile.h>|#import \"$RELATIVE_PATH\"|g" "$BRIDGING_HEADER"
+          rm -f "$BRIDGING_HEADER.bak"
+          
+          echo "✅ 桥接头文件修改完成，新内容："
+          cat "$BRIDGING_HEADER"
 
-      - name: 重新安装iOS依赖（彻底清理旧配置，重新安装）
+      - name: 重新安装iOS依赖
         run: |
           flutter pub get
           cd ios
-          # 先彻底清理旧的损坏的项目配置，解决残留的无效引用
           pod deintegrate
           pod install --repo-update
           cd ..
 
-      - name: 无签名构建（TrollStore专用，强制关闭签名）
+      - name: 无签名构建（TrollStore专用）
         run: |
-          # 先执行Flutter配置
           flutter build ios --release --no-codesign --config-only
-          # 原生Xcode构建，强制无签名，保证TrollStore兼容
           cd ios
           xcodebuild -workspace Runner.xcworkspace \
             -scheme Runner \
@@ -114,7 +77,6 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_IDENTITY="" \
             AD_HOC_CODE_SIGNING_ALLOWED=NO
-          # 提取构建产物
           cp -R build/Runner.xcarchive/Products/Applications/Runner.app ../build/ios/iphoneos/
           cd ..
 
