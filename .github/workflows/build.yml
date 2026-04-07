@@ -42,7 +42,9 @@ jobs:
           rm -rf ios/Frameworks/NodeMobile.xcframework
           # 动态修改NodeMobile的podspec，把vendored_frameworks从xcframework改成普通framework
           sed -i '' 's/NodeMobile.xcframework/NodeMobile.framework/' ios/Frameworks/NodeMobile.podspec
-          echo "✅ 已将NodeMobile从xcframework转为普通真机framework，彻底避免路径变化"
+          # 动态修改桥接头文件的导入路径，从xcframework的旧路径改成普通framework的新路径
+          sed -i '' 's/\.\.\/Frameworks\/NodeMobile.xcframework\/ios-arm64\/NodeMobile.framework\/Headers\/NodeMobile.h/\.\.\/Frameworks\/NodeMobile.framework\/Headers\/NodeMobile.h/' ios/Runner/Runner-Bridging-Header.h
+          echo "✅ 已将NodeMobile从xcframework转为普通真机framework，所有路径已对齐"
 
       - name: 预检查（Dart静态分析）
         run: |
@@ -58,6 +60,17 @@ jobs:
           else
             echo "❌ 头文件未找到，检查路径: $HEADER_PATH"
             ls -laR ios/Frameworks/
+            exit 1
+          fi
+          
+          # 验证桥接头文件已经修改正确
+          BRIDGE_PATH="ios/Runner/Runner-Bridging-Header.h"
+          if grep -q "NodeMobile.framework" "$BRIDGE_PATH"; then
+            echo "✅ 桥接头文件路径已修改正确"
+            cat "$BRIDGE_PATH"
+          else
+            echo "❌ 桥接头文件路径未修改"
+            cat "$BRIDGE_PATH"
             exit 1
           fi
 
