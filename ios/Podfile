@@ -34,7 +34,6 @@ target 'Runner' do
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   
-  # 用本地pod的方式引入framework
   pod 'NodeMobile', :path => 'Frameworks'
 end
 
@@ -51,14 +50,12 @@ post_install do |installer|
     end
   end
 
-  # 给Runner target加头文件搜索路径，解决头文件找不到的问题
   app_project_path = 'Runner.xcodeproj'
   if File.exist?(app_project_path)
     app_project = Xcodeproj::Project.open(app_project_path)
     main_target = app_project.targets.find { |t| t.name == 'Runner' }
     if main_target
       main_target.build_configurations.each do |config|
-        # 用Xcode内置变量，绝对不会错
         config.build_settings['SWIFT_OBJC_BRIDGING_HEADER'] = 'Runner/Runner-Bridging-Header.h'
       end
       app_project.save
