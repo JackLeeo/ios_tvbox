@@ -17,7 +17,7 @@ jobs:
       - name: 拉取Git LFS大文件（NodeMobile框架）
         run: git lfs pull
 
-      - name: 锁定Xcode稳定兼容版本
+      - name: 升级到Xcode 16，让SKIP_XCFRAMEWORK_EXPANSION生效
         run: sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
 
       - name: Setup Flutter SDK
@@ -47,7 +47,7 @@ jobs:
           pod install --repo-update
           cd ..
 
-      - name: 无签名构建（TrollStore专用，加了SKIP_XCFRAMEWORK_EXPANSION跳过xcframework解压）
+      - name: 无签名构建（TrollStore专用，Xcode16下SKIP参数完美生效）
         run: |
           flutter build ios --release --no-codesign --config-only
           cd ios
