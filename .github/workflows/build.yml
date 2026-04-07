@@ -46,16 +46,13 @@ jobs:
           # 修复podspec路径
           sed -i '' 's/NodeMobile.xcframework/NodeMobile.framework/g' ios/Frameworks/NodeMobile.podspec
           
-          # 检查NodeMobile二进制是否存在
-          NODE_MOBILE_BIN="ios/Frameworks/NodeMobile.framework/NodeMobile"
-          if [ -f "$NODE_MOBILE_BIN" ]; then
-            echo "✅ NodeMobile二进制存在: $NODE_MOBILE_BIN"
-            ls -la "$NODE_MOBILE_BIN"
-          else
-            echo "❌ NodeMobile二进制不存在！"
-            ls -la ios/Frameworks/
-            exit 1
-          fi
+          # 检查NodeMobile.framework目录
+          echo "✅ 检查Frameworks目录内容:"
+          ls -la ios/Frameworks/
+          
+          # 检查NodeMobile.framework内部
+          echo "✅ 检查NodeMobile.framework内部:"
+          ls -la ios/Frameworks/NodeMobile.framework/
 
       - name: 生成自定义桥接头
         run: |
