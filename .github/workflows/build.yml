@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-26
+    runs-on: macos-14
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -81,7 +81,8 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=NO
+            AD_HOC_CODE_SIGNING_ALLOWED=NO \
+            FRAMEWORK_SEARCH_PATHS="\$(SRCROOT)/Frameworks"
           cp -R build/Runner.xcarchive/Products/Applications/Runner.app ../build/ios/iphoneos/
 
       - name: 打包IPA
