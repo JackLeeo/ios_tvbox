@@ -40,14 +40,20 @@ jobs:
       - name: 静态检查
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
+      - name: 拆解XCFramework为普通Framework
+        run: |
+          # 把XCFramework里的arm64版本直接提取出来，避免Xcode自动解压导致的路径变化
+          cp -R ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework ios/Frameworks/
+          echo "✅ 已拆解XCFramework为普通Framework"
+
       - name: 检查NodeMobile二进制文件
         run: |
           echo "✅ 检查NodeMobile二进制文件:"
-          ls -la ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework/
+          ls -la ios/Frameworks/NodeMobile.framework/
           # 检查二进制文件是否存在
-          if [ -f "ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework/NodeMobile" ]; then
+          if [ -f "ios/Frameworks/NodeMobile.framework/NodeMobile" ]; then
             echo "✅ 二进制文件存在！"
-            file ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework/NodeMobile
+            file ios/Frameworks/NodeMobile.framework/NodeMobile
           else
             echo "❌ 二进制文件缺失！"
             ls -laR ios/Frameworks/
