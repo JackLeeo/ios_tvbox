@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-26
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -17,7 +17,7 @@ jobs:
         run: git lfs pull
 
       - name: 锁定Xcode版本
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
 
       - name: 安装Flutter
         uses: subosito/flutter-action@v2
@@ -52,19 +52,17 @@ jobs:
       - name: 生成自定义桥接头
         run: |
           # 手动写入NodeJSBridge的接口，让Swift能识别到静态方法
-          cat > ios/Runner/Runner-Bridging-Header.h <<EOF
-#ifndef Runner_Bridging_Header_h
-#define Runner_Bridging_Header_h
-
-#import "GeneratedPluginRegistrant.h"
-#import <Flutter/Flutter.h>
-
-@interface NodeJSBridge : NSObject
-+ (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar;
-@end
-
-#endif
-EOF
+          echo "#ifndef Runner_Bridging_Header_h" > ios/Runner/Runner-Bridging-Header.h
+          echo "#define Runner_Bridging_Header_h" >> ios/Runner/Runner-Bridging-Header.h
+          echo "" >> ios/Runner/Runner-Bridging-Header.h
+          echo "#import \"GeneratedPluginRegistrant.h\"" >> ios/Runner/Runner-Bridging-Header.h
+          echo "#import <Flutter/Flutter.h>" >> ios/Runner/Runner-Bridging-Header.h
+          echo "" >> ios/Runner/Runner-Bridging-Header.h
+          echo "@interface NodeJSBridge : NSObject" >> ios/Runner/Runner-Bridging-Header.h
+          echo "+ (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar;" >> ios/Runner/Runner-Bridging-Header.h
+          echo "@end" >> ios/Runner/Runner-Bridging-Header.h
+          echo "" >> ios/Runner/Runner-Bridging-Header.h
+          echo "#endif" >> ios/Runner/Runner-Bridging-Header.h
 
       - name: 重新安装iOS依赖
         run: |
