@@ -57,11 +57,33 @@ jobs:
             echo "❌ 桥接头文件缺失"
             exit 1
           fi
+          if [ -f "ios/NodeMobile.h" ]; then
+            echo "✅ 单独的NodeMobile.h存在，准备复制到framework中"
+          fi
 
-      - name: 重新安装iOS依赖（核心修复：移除pod deintegrate，彻底解决一致性报错）
+      - name: 修复头文件路径（把单独的头文件复制到xcframework里）
+        run: |
+          # 把单独的NodeMobile.h复制到xcframework的各个平台的Headers目录
+          NODE_H_PATH="ios/NodeMobile.h"
+          if [ -f "$NODE_H_PATH" ]; then
+            echo "📝 正在把NodeMobile.h复制到xcframework的Headers目录..."
+            # 遍历所有平台的framework目录
+            for platform_dir in ios/Frameworks/NodeMobile.xcframework/*/; do
+              headers_dir="${platform_dir}NodeMobile.framework/Headers"
+              mkdir -p "$headers_dir"
+              cp "$NODE_H_PATH" "$headers_dir/"
+              echo "✅ 已复制到: $headers_dir"
+            done
+          else
+            echo "⚠️ 未找到NodeMobile.h，跳过复制"
+          fi
+
+      - name: 重新安装iOS依赖（彻底清理旧配置，重新安装）
         run: |
           flutter pub get
           cd ios
+          # 先彻底清理旧的损坏的项目配置，解决残留的无效引用
+          pod deintegrate
           pod install --repo-update
           cd ..
 
