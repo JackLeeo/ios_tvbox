@@ -42,8 +42,11 @@ jobs:
           rm -rf ios/Frameworks/NodeMobile.xcframework
           # 动态修改NodeMobile的podspec，把vendored_frameworks从xcframework改成普通framework
           sed -i '' 's/NodeMobile.xcframework/NodeMobile.framework/' ios/Frameworks/NodeMobile.podspec
+          # 列出所有头文件，看看都有啥
+          ls -la ios/Frameworks/NodeMobile.framework/
+          ls -la ios/Frameworks/NodeMobile.framework/*/
           # 直接修改桥接头，导入NodeJSBridge自己的头文件，绕开NodeMobile那个依赖模块的伞头
-          sed -i '' 's/#import.*/#import \"..\/Frameworks\/NodeMobile.framework\/Headers\/NodeJSBridge.h\"/' ios/Runner/Runner-Bridging-Header.h
+          sed -i '' 's/#import.*/#import \"..\/Frameworks\/NodeMobile.framework\/PrivateHeaders\/NodeJSBridge.h\"/' ios/Runner/Runner-Bridging-Header.h
           echo "✅ 已将NodeMobile从xcframework转为普通真机framework，所有路径已对齐"
 
       - name: 预检查（Dart静态分析）
@@ -54,13 +57,13 @@ jobs:
       - name: 验证所有文件
         run: |
           # 验证NodeJSBridge头文件
-          HEADER_PATH="ios/Frameworks/NodeMobile.framework/Headers/NodeJSBridge.h"
+          HEADER_PATH="ios/Frameworks/NodeMobile.framework/PrivateHeaders/NodeJSBridge.h"
           if [ -f "$HEADER_PATH" ]; then
             echo "✅ NodeJSBridge头文件位置正确: $HEADER_PATH"
             cat "$HEADER_PATH"
           else
             echo "❌ NodeJSBridge头文件未找到"
-            ls -laR ios/Frameworks/NodeMobile.framework/Headers/
+            ls -laR ios/Frameworks/NodeMobile.framework/
             exit 1
           fi
           
