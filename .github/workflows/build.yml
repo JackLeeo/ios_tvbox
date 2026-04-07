@@ -1,122 +1,59 @@
-name: Build iOS TVBox Release (TrollStore专用无签名版)
-
+name: Build iOS TVBox
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
-  build-ios-trollstore-unsigned:
+  build:
     runs-on: macos-14
     steps:
-      - name: Checkout source code
-        uses: actions/checkout@v4
-
-      - name: 拉取Git LFS大文件（NodeMobile框架）
-        run: git lfs pull
-
-      - name: 锁定Xcode 15.4（稳定兼容版本）
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
-
-      - name: Setup Flutter SDK
-        uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v4
+      - run: git lfs pull
+      - run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.41.6'
           channel: stable
           cache: true
-
-      - name: 全量清理构建缓存
-        run: |
-          flutter clean
-          rm -rf ios/Pods ios/Podfile.lock ios/build .dart_tool build
-          rm -rf ~/Library/Developer/Xcode/DerivedData/*
-          rm -rf ~/Library/Developer/Xcode/ModuleCache.noindex
-
-      - name: 预检查（Dart静态分析）
-        run: |
-          flutter pub get
-          flutter analyze --no-fatal-infos --no-fatal-warnings
-
-      - name: 终极hack：彻底绕开所有xcframework和模块问题
-        run: |
-          # 1. 先把xcframework里的真机framework复制出来，再删原xcframework（之前顺序搞反了！）
-          cp -r ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework ios/Frameworks/
-          rm -rf ios/Frameworks/NodeMobile.xcframework
-          
-          # 2. 删除modulemap，彻底绕开Clang的模块路径校验
-          find ios/Frameworks/NodeMobile.framework -name "module.modulemap" -delete
-          
-          # 3. macOS的sed必须加-i ''，修改podspec让pod加载普通framework
-          sed -i '' 's/NodeMobile.xcframework/NodeMobile.framework/g' ios/Frameworks/NodeMobile.podspec
-          
-          # 4. 桥接头用前向声明，彻底不用管头文件
-          cat > ios/Runner/Runner-Bridging-Header.h <<'EOF'
-#ifndef Runner_Bridging_Header_h
+      - run: |
+        flutter clean
+        rm -rf ios/Pods ios/Podfile.lock ios/build .dart_tool build
+        rm -rf ~/Library/Developer/Xcode/DerivedData/*
+        rm -rf ~/Library/Developer/Xcode/ModuleCache.noindex
+      - run: |
+        flutter pub get
+        flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: |
+        cp -r ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework ios/Frameworks/
+        rm -rf ios/Frameworks/NodeMobile.xcframework
+        find ios/Frameworks/NodeMobile.framework -name "module.modulemap" -delete
+        sed -i '' 's/NodeMobile.xcframework/NodeMobile.framework/g' ios/Frameworks/NodeMobile.podspec
+        echo "#ifndef Runner_Bridging_Header_h
 #define Runner_Bridging_Header_h
-
-#import "GeneratedPluginRegistrant.h"
-// 前向声明：只告诉Swift有NodeJSBridge这个类存在，不用导入任何头文件
+#import \"GeneratedPluginRegistrant.h\"
 @class NodeJSBridge;
-
-#endif
-EOF
-
-      - name: 重新安装iOS依赖
-        run: |
-          flutter pub get
-          cd ios
-          pod deintegrate
-          pod install --repo-update
-          cd ..
-
-      - name: 无签名构建（TrollStore专用）
-        run: |
-          flutter build ios --release --no-codesign --config-only
-          cd ios
-          xcodebuild -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            clean archive \
-            -archivePath $PWD/build/Runner.xcarchive \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=NO
-          cp -R build/Runner.xcarchive/Products/Applications/Runner.app ../build/ios/iphoneos/
-          cd ..
-
-      - name: 校验构建产物
-        run: |
-          if [ -d "build/ios/iphoneos/Runner.app" ]; then
-            echo "✅ 无签名APP构建成功"
-            ls -la build/ios/iphoneos/Runner.app
-          else
-            echo "❌ 构建失败：未找到 Runner.app"
-            exit 1
-          fi
-
-      - name: 打包 IPA（TrollStore 专用）
-        run: |
-          mkdir -p Payload
-          cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r tvbox_trollstore_unsigned.ipa Payload/
-          rm -rf Payload/
-
-      - name: 校验 IPA 生成
-        run: |
-          if [ -f "tvbox_trollstore_unsigned.ipa" ]; then
-            echo "✅ IPA 生成成功"
-            ls -la tvbox_trollstore_unsigned.ipa
-          else
-            echo "❌ IPA 生成失败"
-            exit 1
-          fi
-
-      - name: 上传无签名 IPA 产物
-        uses: actions/upload-artifact@v4
+#endif" > ios/Runner/Runner-Bridging-Header.h
+      - run: |
+        flutter pub get
+        cd ios
+        pod deintegrate
+        pod install --repo-update
+        cd ..
+      - run: |
+        flutter build ios --release --no-codesign --config-only
+        cd ios
+        xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release clean archive -archivePath $PWD/build/Runner.xcarchive CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO CODE_SIGNING_IDENTITY="" AD_HOC_CODE_SIGNING_ALLOWED=NO
+        cp -R build/Runner.xcarchive/Products/Applications/Runner.app ../build/ios/iphoneos/
+        cd ..
+      - run: |
+        mkdir -p Payload
+        cp -r build/ios/iphoneos/Runner.app Payload/
+        zip -r tvbox_trollstore_unsigned.ipa Payload/
+        rm -rf Payload/
+      - uses: actions/upload-artifact@v4
         with:
           name: tvbox_trollstore_unsigned_ipa
           path: tvbox_trollstore_unsigned.ipa
