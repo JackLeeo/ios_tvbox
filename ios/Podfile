@@ -3,7 +3,8 @@ source 'https://cdn.cocoapods.org/'
 platform :ios, '13.0'
 
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
-ENV['GIT_LFS_SKIP_SMUDGE'] = '1'
+# 注释掉这行，否则Git LFS无法拉取NodeMobile的实际框架文件，会导致编译时找不到真实的框架二进制
+# ENV['GIT_LFS_SKIP_SMUDGE'] = '1'
 
 project 'Runner', {
   'Debug' => :debug,
@@ -47,6 +48,8 @@ post_install do |installer|
       config.build_settings['CODE_SIGN_IDENTITY'] = ''
       config.build_settings['DEVELOPMENT_TEAM'] = ''
       config.build_settings['OTHER_LDFLAGS'] = '$(inherited) -framework AVFoundation -framework CoreMedia -framework CoreVideo'
+      # 新增：禁用Xcode 15默认启用的Explicit Modules，解决旧预编译框架的模块路径冲突问题
+      config.build_settings['SWIFT_EXPLICIT_MODULES'] = 'NO'
     end
   end
 
@@ -57,6 +60,8 @@ post_install do |installer|
     if main_target
       main_target.build_configurations.each do |config|
         config.build_settings['SWIFT_OBJC_BRIDGING_HEADER'] = 'Runner/Runner-Bridging-Header.h'
+        # 同步给主项目也禁用Explicit Modules，确保整个项目的模块系统兼容
+        config.build_settings['SWIFT_EXPLICIT_MODULES'] = 'NO'
       end
       app_project.save
     end
