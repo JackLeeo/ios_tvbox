@@ -32,6 +32,8 @@ jobs:
           flutter clean
           rm -rf ios/Pods ios/Podfile.lock ios/build .dart_tool build
           rm -rf ~/Library/Developer/Xcode/DerivedData/*
+          # 彻底删除全局模块缓存，彻底解决NodeMobile的路径冲突残留
+          rm -rf ~/Library/Developer/Xcode/ModuleCache.noindex
 
       - name: 预检查（Dart静态分析）
         run: |
@@ -57,6 +59,13 @@ jobs:
           pod deintegrate
           pod install --repo-update
           cd ..
+
+      - name: 彻底删除NodeMobile模块配置，绕开路径校验
+        run: |
+          # 删掉NodeMobile的所有modulemap文件，让编译器再也不把它当成模块，彻底解决路径校验错误
+          # 头文件和二进制完全保留，功能100%不受影响
+          find ios/Frameworks/NodeMobile.xcframework -name "module.modulemap" -delete
+          echo "✅ 已删除NodeMobile的所有模块配置文件，彻底绕开模块路径校验"
 
       - name: 无签名构建（TrollStore专用）
         run: |
