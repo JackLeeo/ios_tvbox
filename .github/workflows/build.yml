@@ -34,49 +34,10 @@ jobs:
           rm -rf ~/Library/Developer/Xcode/DerivedData/*
           rm -rf ~/Library/Developer/Xcode/ModuleCache.noindex
 
-      - name: 把xcframework拆成普通真机framework，彻底绕开Xcode解压路径问题
-        run: |
-          # 把真机的framework从xcframework里拆出来，直接用普通framework
-          cp -r ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework ios/Frameworks/
-          # 删除原来的xcframework，避免Xcode自动识别解压
-          rm -rf ios/Frameworks/NodeMobile.xcframework
-          # 动态修改NodeMobile的podspec，把vendored_frameworks从xcframework改成普通framework
-          sed -i '' 's/NodeMobile.xcframework/NodeMobile.framework/' ios/Frameworks/NodeMobile.podspec
-          # 列出所有头文件，看看都有啥
-          ls -la ios/Frameworks/NodeMobile.framework/
-          ls -la ios/Frameworks/NodeMobile.framework/*/
-          # 直接修改桥接头，导入NodeJSBridge自己的头文件，绕开NodeMobile那个依赖模块的伞头
-          sed -i '' 's/#import.*/#import \"..\/Frameworks\/NodeMobile.framework\/PrivateHeaders\/NodeJSBridge.h\"/' ios/Runner/Runner-Bridging-Header.h
-          echo "✅ 已将NodeMobile从xcframework转为普通真机framework，所有路径已对齐"
-
       - name: 预检查（Dart静态分析）
         run: |
           flutter pub get
           flutter analyze --no-fatal-infos --no-fatal-warnings
-
-      - name: 验证所有文件
-        run: |
-          # 验证NodeJSBridge头文件
-          HEADER_PATH="ios/Frameworks/NodeMobile.framework/PrivateHeaders/NodeJSBridge.h"
-          if [ -f "$HEADER_PATH" ]; then
-            echo "✅ NodeJSBridge头文件位置正确: $HEADER_PATH"
-            cat "$HEADER_PATH"
-          else
-            echo "❌ NodeJSBridge头文件未找到"
-            ls -laR ios/Frameworks/NodeMobile.framework/
-            exit 1
-          fi
-          
-          # 验证桥接头文件已经修改正确
-          BRIDGE_PATH="ios/Runner/Runner-Bridging-Header.h"
-          if grep -q "NodeJSBridge.h" "$BRIDGE_PATH"; then
-            echo "✅ 桥接头文件已修改为直接导入NodeJSBridge"
-            cat "$BRIDGE_PATH"
-          else
-            echo "❌ 桥接头文件未修改"
-            cat "$BRIDGE_PATH"
-            exit 1
-          fi
 
       - name: 重新安装iOS依赖
         run: |
@@ -86,7 +47,7 @@ jobs:
           pod install --repo-update
           cd ..
 
-      - name: 无签名构建（TrollStore专用）
+      - name: 无签名构建（TrollStore专用，加了SKIP_XCFRAMEWORK_EXPANSION跳过xcframework解压）
         run: |
           flutter build ios --release --no-codesign --config-only
           cd ios
@@ -99,7 +60,8 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=NO
+            AD_HOC_CODE_SIGNING_ALLOWED=NO \
+            SKIP_XCFRAMEWORK_EXPANSION=YES
           cp -R build/Runner.xcarchive/Products/Applications/Runner.app ../build/ios/iphoneos/
           cd ..
 
