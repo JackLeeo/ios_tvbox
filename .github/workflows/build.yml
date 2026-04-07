@@ -28,11 +28,7 @@ jobs:
       - run: rm -rf ios/Frameworks/NodeMobile.xcframework
       - run: find ios/Frameworks/NodeMobile.framework -name "module.modulemap" -delete
       - run: sed -i '' 's/NodeMobile.xcframework/NodeMobile.framework/g' ios/Frameworks/NodeMobile.podspec
-      - run: echo "#ifndef Runner_Bridging_Header_h
-#define Runner_Bridging_Header_h
-#import \"GeneratedPluginRegistrant.h\"
-@class NodeJSBridge;
-#endif" > ios/Runner/Runner-Bridging-Header.h
+      - run: echo -e "#ifndef Runner_Bridging_Header_h\n#define Runner_Bridging_Header_h\n#import \"GeneratedPluginRegistrant.h\"\n@class NodeJSBridge;\n#endif" > ios/Runner/Runner-Bridging-Header.h
       - run: flutter pub get
       - run: cd ios && pod deintegrate
       - run: cd ios && pod install --repo-update
