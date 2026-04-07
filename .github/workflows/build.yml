@@ -36,6 +36,11 @@ jobs:
       - name: 静态检查
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
+      - name: 检查原始XCFramework内容
+        run: |
+          echo "✅ 检查原始XCFramework内容:"
+          ls -laR ios/Frameworks/NodeMobile.xcframework/
+
       - name: 拆解XCFramework（解决模块路径问题）
         run: |
           # 把XCFramework拆成普通的单架构Framework，彻底绕开Xcode的自动解压
@@ -46,13 +51,9 @@ jobs:
           # 修复podspec路径
           sed -i '' 's/NodeMobile.xcframework/NodeMobile.framework/g' ios/Frameworks/NodeMobile.podspec
           
-          # 检查NodeMobile.framework目录
-          echo "✅ 检查Frameworks目录内容:"
-          ls -la ios/Frameworks/
-          
           # 检查NodeMobile.framework内部
           echo "✅ 检查NodeMobile.framework内部:"
-          ls -la ios/Frameworks/NodeMobile.framework/
+          ls -laR ios/Frameworks/NodeMobile.framework/
 
       - name: 生成自定义桥接头
         run: |
@@ -80,8 +81,6 @@ jobs:
         run: |
           flutter build ios --release --no-codesign --config-only
           cd ios
-          # 直接用绝对路径强制链接NodeMobile的二进制，彻底绕开所有搜索问题
-          NODE_MOBILE_BIN="$PWD/Frameworks/NodeMobile.framework/NodeMobile"
           xcodebuild -workspace Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
@@ -92,8 +91,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_IDENTITY="" \
             AD_HOC_CODE_SIGNING_ALLOWED=NO \
-            FRAMEWORK_SEARCH_PATHS="\$(inherited) $PWD/Frameworks" \
-            OTHER_LDFLAGS="\$(inherited) -force_load $NODE_MOBILE_BIN"
+            FRAMEWORK_SEARCH_PATHS="\$(inherited) $PWD/Frameworks"
           cp -R build/Runner.xcarchive/Products/Applications/Runner.app ../build/ios/iphoneos/
 
       - name: 打包IPA
