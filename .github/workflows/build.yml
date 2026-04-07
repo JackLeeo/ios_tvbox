@@ -32,7 +32,6 @@ jobs:
           flutter clean
           rm -rf ios/Pods ios/Podfile.lock ios/build .dart_tool build
           rm -rf ~/Library/Developer/Xcode/DerivedData/*
-          # 彻底删除全局模块缓存，彻底解决NodeMobile的路径冲突残留
           rm -rf ~/Library/Developer/Xcode/ModuleCache.noindex
 
       - name: 预检查（Dart静态分析）
@@ -59,6 +58,19 @@ jobs:
           pod deintegrate
           pod install --repo-update
           cd ..
+
+      - name: 修复NodeMobile modulemap 路径问题（终极解决）
+        run: |
+          find ios/Frameworks/NodeMobile.xcframework -name "module.modulemap" -exec sh -c '
+          cat > {} <<EOF
+          framework module NodeMobile {
+            umbrella header "NodeMobile.h"
+            export *
+            module * { export * }
+          }
+          EOF
+          ' \;
+          echo "✅ NodeMobile modulemap 已修复为标准相对路径"
 
       - name: 无签名构建（TrollStore专用）
         run: |
