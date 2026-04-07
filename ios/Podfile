@@ -48,7 +48,6 @@ post_install do |installer|
       config.build_settings['CODE_SIGN_IDENTITY'] = ''
       config.build_settings['DEVELOPMENT_TEAM'] = ''
       config.build_settings['OTHER_LDFLAGS'] = '$(inherited) -framework AVFoundation -framework CoreMedia -framework CoreVideo'
-      # 这里不改动，保留第三方插件的模块功能，让它们能正常编译
     end
   end
 
@@ -59,8 +58,10 @@ post_install do |installer|
     if main_target
       main_target.build_configurations.each do |config|
         config.build_settings['SWIFT_OBJC_BRIDGING_HEADER'] = 'Runner/Runner-Bridging-Header.h'
-        # 只给主项目关掉Clang模块，彻底绕开NodeMobile的模块路径校验，不影响第三方插件
-        config.build_settings['CLANG_ENABLE_MODULES'] = 'NO'
+        # 核心修复：关闭PCH验证，让Clang忽略模块路径的校验，完美解决那个路径错误
+        config.build_settings['GCC_NO_VALIDATE_PCH'] = 'YES'
+        # 同时允许非确定性模块，彻底绕开路径检查
+        config.build_settings['CLANG_ALLOW_NON_DETERMINISTIC_MODULES'] = 'YES'
       end
       app_project.save
     end
@@ -72,6 +73,5 @@ post_install do |installer|
     config.build_settings['CODE_SIGN_IDENTITY'] = ''
     config.build_settings['DEVELOPMENT_TEAM'] = ''
     config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
-    # 这里也不改动，保留Pods项目的模块功能
   end
 end
