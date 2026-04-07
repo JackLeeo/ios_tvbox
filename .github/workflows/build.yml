@@ -1,142 +1,28 @@
-name: Build iOS TVBox Release (TrollStore专用无签名版)
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
-
-jobs:
-  build-ios-trollstore-unsigned:
-    runs-on: macos-14
-    steps:
-      - name: Checkout source code
-        uses: actions/checkout@v4
-
-      - name: 锁定Xcode稳定兼容版本
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
-
-      - name: Setup Flutter SDK
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.41.6'
-          channel: stable
-          cache: true # 优化：开启缓存，大幅加快后续构建速度，不影响稳定性
-
-      - name: 全量清理构建缓存（合并冗余步骤）
-        run: |
-          flutter clean
-          rm -rf ios/Pods ios/Podfile.lock ios/build .dart_tool build
-          rm -rf ~/Library/Developer/Xcode/DerivedData/*
-
-      - name: 预检查（Dart静态分析）
-        run: |
-          flutter pub get
-          flutter analyze --no-fatal-infos --no-fatal-warnings
-
-      - name: 验证 NodeMobile framework 结构与项目配置
-        run: |
-          echo "📁 检查 ios/Frameworks 目录："
-          ls -la ios/Frameworks/ || echo "目录不存在"
-          echo ""
-          echo "📂 递归列出 NodeMobile.xcframework 内容："
-          if [ -d "ios/Frameworks/NodeMobile.xcframework" ]; then
-            ls -R ios/Frameworks/NodeMobile.xcframework/
-          else
-            echo "❌ NodeMobile.xcframework 未找到！"
-            exit 1
-          fi
-          echo ""
-          echo "🔍 查找头文件与桥接文件："
-          find ios/Frameworks -name "*.h" 2>/dev/null || echo "未找到framework头文件"
-          if [ -f "ios/Runner/Runner-Bridging-Header.h" ]; then
-            echo "✅ 桥接头文件存在"
-            cat ios/Runner/Runner-Bridging-Header.h
-          else
-            echo "❌ 桥接头文件缺失"
-            exit 1
-          fi
-          if [ -f "ios/NodeMobile.h" ]; then
-            echo "✅ 单独的NodeMobile.h存在，准备复制到framework中"
-          fi
-
       - name: 修复头文件路径（把单独的头文件复制到xcframework里）
         run: |
-          # 把单独的NodeMobile.h复制到xcframework的各个平台的Headers目录
-          NODE_H_PATH="ios/NodeMobile.h"
-          if [ -f "$NODE_H_PATH" ]; then
-            echo "📝 正在把NodeMobile.h复制到xcframework的Headers目录..."
-            # 遍历所有平台的framework目录
-            for platform_dir in ios/Frameworks/NodeMobile.xcframework/*/; do
-              headers_dir="${platform_dir}NodeMobile.framework/Headers"
-              mkdir -p "$headers_dir"
-              cp "$NODE_H_PATH" "$headers_dir/"
-              echo "✅ 已复制到: $headers_dir"
-            done
-          else
-            echo "⚠️ 未找到NodeMobile.h，跳过复制"
-          fi
-
-      - name: 重新安装iOS依赖（彻底清理旧配置，重新安装）
-        run: |
-          flutter pub get
-          cd ios
-          # 先彻底清理旧的损坏的项目配置，解决残留的无效引用
-          pod deintegrate
-          pod install --repo-update
-          cd ..
-
-      - name: 无签名构建（TrollStore专用，强制关闭签名）
-        run: |
-          # 先执行Flutter配置
-          flutter build ios --release --no-codesign --config-only
-          # 原生Xcode构建，强制无签名，保证TrollStore兼容
-          cd ios
-          xcodebuild -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            clean archive \
-            -archivePath $PWD/build/Runner.xcarchive \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=NO
-          # 提取构建产物
-          cp -R build/Runner.xcarchive/Products/Applications/Runner.app ../build/ios/iphoneos/
-          cd ..
-
-      - name: 校验构建产物
-        run: |
-          if [ -d "build/ios/iphoneos/Runner.app" ]; then
-            echo "✅ 无签名APP构建成功"
-            ls -la build/ios/iphoneos/Runner.app
-          else
-            echo "❌ 构建失败：未找到 Runner.app"
+          # 把单独的NodeMobile.h复制到xcframework的各个平台的Headers目录，解决头文件找不到的问题
+          NODE_H_PATH="NodeMobile.h"
+          if [ ! -f "$NODE_H_PATH" ]; then
+            echo "❌ 错误：未找到NodeMobile.h，路径: $NODE_H_PATH"
+            # 打印目录，帮我们确认文件到底在哪
+            echo "当前项目根目录文件列表："
+            ls -la
+            echo "ios子目录文件列表："
+            ls -la ios/
             exit 1
           fi
-
-      - name: 打包 IPA（TrollStore 专用）
-        run: |
-          mkdir -p Payload
-          cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r tvbox_trollstore_unsigned.ipa Payload/
-          rm -rf Payload/
-
-      - name: 校验 IPA 生成
-        run: |
-          if [ -f "tvbox_trollstore_unsigned.ipa" ]; then
-            echo "✅ IPA 生成成功"
-            ls -la tvbox_trollstore_unsigned.ipa
-          else
-            echo "❌ IPA 生成失败"
-            exit 1
-          fi
-
-      - name: 上传无签名 IPA 产物
-        uses: actions/upload-artifact@v4
-        with:
-          name: tvbox_trollstore_unsigned_ipa
-          path: tvbox_trollstore_unsigned.ipa
-          retention-days: 30
+          echo "📝 正在把NodeMobile.h复制到xcframework的Headers目录..."
+          # 遍历所有平台的framework目录
+          for platform_dir in ios/Frameworks/NodeMobile.xcframework/*/; do
+            headers_dir="${platform_dir}NodeMobile.framework/Headers"
+            mkdir -p "$headers_dir"
+            cp "$NODE_H_PATH" "$headers_dir/"
+            echo "✅ 已复制到: $headers_dir"
+            # 验证复制是否成功
+            if [ -f "${headers_dir}/NodeMobile.h" ]; then
+              echo "✅ 验证：头文件已成功写入 ${headers_dir}/NodeMobile.h"
+            else
+              echo "❌ 错误：头文件复制失败到 ${headers_dir}"
+              exit 1
+            fi
+          done
