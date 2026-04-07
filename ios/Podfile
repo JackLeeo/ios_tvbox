@@ -48,7 +48,7 @@ post_install do |installer|
     end
   end
 
-  # ========== 手动添加 nodejs-mobile.xcframework ==========
+  # ========== 手动添加 NodeMobile.xcframework ==========
   app_project_path = 'Runner.xcodeproj'
   if File.exist?(app_project_path)
     app_project = Xcodeproj::Project.open(app_project_path)
@@ -57,7 +57,7 @@ post_install do |installer|
       # 创建或获取 Frameworks 组
       frameworks_group = app_project.main_group.find_subpath('Frameworks', true)
       frameworks_group.clear if frameworks_group
-      framework_path = 'Frameworks/nodejs-mobile.xcframework'
+      framework_path = 'Frameworks/NodeMobile.xcframework'
       if File.exist?(framework_path)
         framework_ref = frameworks_group.new_file(framework_path)
         # 添加到 Link Binary With Libraries
@@ -69,9 +69,9 @@ post_install do |installer|
           embed_phase.dst_subfolder_spec = '10' # 10 = Frameworks 目录
         end
         embed_phase.add_file_reference(framework_ref)
-        puts "✅ 已添加并嵌入 nodejs-mobile.xcframework"
+        puts "✅ 已添加并嵌入 NodeMobile.xcframework"
       else
-        puts "⚠️ 未找到 nodejs-mobile.xcframework，请检查路径 ios/Frameworks/"
+        puts "⚠️ 未找到 NodeMobile.xcframework，请检查路径 ios/Frameworks/"
       end
 
       # ========== 设置 Objective-C Bridging Header ==========
