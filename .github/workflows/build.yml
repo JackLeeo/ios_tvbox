@@ -13,9 +13,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 拉取Git LFS大文件（详细日志）
+      - name: 强制拉取所有Git LFS大文件
         run: |
-          git lfs pull -v
+          # 强制拉取所有LFS对象，绕过Git 2.42+的新过滤规则
+          git lfs fetch --all
+          git lfs checkout
           git lfs status
 
       - name: 安装Flutter
@@ -38,10 +40,19 @@ jobs:
       - name: 静态检查
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: 检查原始XCFramework内容
+      - name: 检查NodeMobile二进制文件
         run: |
-          echo "✅ 检查原始XCFramework内容:"
-          ls -laR ios/Frameworks/NodeMobile.xcframework/
+          echo "✅ 检查NodeMobile二进制文件:"
+          ls -la ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework/
+          # 检查二进制文件是否存在
+          if [ -f "ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework/NodeMobile" ]; then
+            echo "✅ 二进制文件存在！"
+            file ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework/NodeMobile
+          else
+            echo "❌ 二进制文件缺失！"
+            ls -laR ios/Frameworks/
+            exit 1
+          fi
 
       - name: 生成自定义桥接头
         run: |
