@@ -34,6 +34,16 @@ jobs:
           rm -rf ~/Library/Developer/Xcode/DerivedData/*
           rm -rf ~/Library/Developer/Xcode/ModuleCache.noindex
 
+      - name: 把xcframework拆成普通真机framework，彻底绕开Xcode解压路径问题
+        run: |
+          # 把真机的framework从xcframework里拆出来，直接用普通framework，避免Xcode解压到临时目录
+          cp -r ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework ios/Frameworks/
+          # 删除原来的xcframework，避免Xcode自动识别解压
+          rm -rf ios/Frameworks/NodeMobile.xcframework
+          # 动态修改Podfile，把pod的路径指向普通framework
+          sed -i '' 's/pod '\''NodeMobile'\'', :path => '\''Frameworks'\''/pod '\''NodeMobile'\'', :path => '\''Frameworks\/NodeMobile.framework'\''/' ios/Podfile
+          echo "✅ 已将NodeMobile从xcframework转为普通真机framework，彻底避免路径变化"
+
       - name: 预检查（Dart静态分析）
         run: |
           flutter pub get
@@ -41,7 +51,7 @@ jobs:
 
       - name: 验证 NodeMobile 头文件位置
         run: |
-          HEADER_PATH="ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework/Headers/NodeMobile.h"
+          HEADER_PATH="ios/Frameworks/NodeMobile.framework/Headers/NodeMobile.h"
           if [ -f "$HEADER_PATH" ]; then
             echo "✅ 头文件位置正确: $HEADER_PATH"
             cat "$HEADER_PATH"
@@ -58,19 +68,6 @@ jobs:
           pod deintegrate
           pod install --repo-update
           cd ..
-
-      - name: 修复NodeMobile modulemap 路径问题（终极解决）
-        run: |
-          find ios/Frameworks/NodeMobile.xcframework -name "module.modulemap" -exec sh -c '
-          cat > {} <<EOF
-          framework module NodeMobile {
-            umbrella header "NodeMobile.h"
-            export *
-            module * { export * }
-          }
-          EOF
-          ' \;
-          echo "✅ NodeMobile modulemap 已修复为标准相对路径"
 
       - name: 无签名构建（TrollStore专用）
         run: |
