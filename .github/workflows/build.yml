@@ -45,6 +45,17 @@ jobs:
           rm -f ios/Frameworks/NodeMobile.framework/module.modulemap
           # 修复podspec路径
           sed -i '' 's/NodeMobile.xcframework/NodeMobile.framework/g' ios/Frameworks/NodeMobile.podspec
+          
+          # 检查NodeMobile二进制是否存在
+          NODE_MOBILE_BIN="ios/Frameworks/NodeMobile.framework/NodeMobile"
+          if [ -f "$NODE_MOBILE_BIN" ]; then
+            echo "✅ NodeMobile二进制存在: $NODE_MOBILE_BIN"
+            ls -la "$NODE_MOBILE_BIN"
+          else
+            echo "❌ NodeMobile二进制不存在！"
+            ls -la ios/Frameworks/
+            exit 1
+          fi
 
       - name: 生成自定义桥接头
         run: |
@@ -72,8 +83,8 @@ jobs:
         run: |
           flutter build ios --release --no-codesign --config-only
           cd ios
-          # 直接用当前的绝对路径，彻底解决搜索路径问题
-          FRAMEWORK_PATH="$PWD/Frameworks"
+          # 直接用绝对路径强制链接NodeMobile的二进制，彻底绕开所有搜索问题
+          NODE_MOBILE_BIN="$PWD/Frameworks/NodeMobile.framework/NodeMobile"
           xcodebuild -workspace Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
@@ -84,7 +95,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_IDENTITY="" \
             AD_HOC_CODE_SIGNING_ALLOWED=NO \
-            FRAMEWORK_SEARCH_PATHS="\$(inherited) $FRAMEWORK_PATH"
+            FRAMEWORK_SEARCH_PATHS="\$(inherited) $PWD/Frameworks" \
+            OTHER_LDFLAGS="\$(inherited) -force_load $NODE_MOBILE_BIN"
           cp -R build/Runner.xcarchive/Products/Applications/Runner.app ../build/ios/iphoneos/
 
       - name: 打包IPA
