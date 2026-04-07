@@ -61,19 +61,18 @@ jobs:
             echo "✅ 单独的NodeMobile.h存在，准备复制到framework中"
           fi
 
-      - name: 修复头文件路径（把单独的头文件复制到xcframework里）
+           - name: 修复头文件路径（自动查找并复制头文件）
         run: |
-          # 把单独的NodeMobile.h复制到xcframework的各个平台的Headers目录，解决头文件找不到的问题
-          NODE_H_PATH="NodeMobile.h"
-          if [ ! -f "$NODE_H_PATH" ]; then
-            echo "❌ 错误：未找到NodeMobile.h，路径: $NODE_H_PATH"
-            # 打印目录，帮我们确认文件到底在哪
-            echo "当前项目根目录文件列表："
-            ls -la
-            echo "ios子目录文件列表："
-            ls -la ios/
+          # 自动搜索整个项目里的NodeMobile.h，不管它在哪都能找到
+          NODE_H_PATH=$(find . -name "NodeMobile.h" -type f | head -n 1)
+          if [ -z "$NODE_H_PATH" ]; then
+            echo "❌ 错误：整个项目里都找不到NodeMobile.h！"
+            echo "当前项目所有文件列表："
+            ls -laR
             exit 1
           fi
+          echo "✅ 找到NodeMobile.h，真实路径: $NODE_H_PATH"
+          
           echo "📝 正在把NodeMobile.h复制到xcframework的Headers目录..."
           # 遍历所有平台的framework目录
           for platform_dir in ios/Frameworks/NodeMobile.xcframework/*/; do
