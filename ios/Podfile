@@ -12,16 +12,16 @@ project 'Runner', {
 }
 
 def flutter_root
-  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
-  unless File.exist?(generated_xcode_build_settings_path)
-    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
+  generated_xcbuild_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcbuild_settings_path)
+    raise "#{generated_xcbuild_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
   end
 
-  File.foreach(generated_xcode_build_settings_path) do |line|
+  File.foreach(generated_xcbuild_settings_path) do |line|
     matches = line.match(/FLUTTER_ROOT\=(.*)/)
     return matches[1].strip if matches
   end
-  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
+  raise "FLUTTER_ROOT not found in #{generated_xcbuild_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
 end
 
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
@@ -33,6 +33,10 @@ target 'Runner' do
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  
+  # ✅ 核心：用CocoaPods自带的能力添加本地framework，自动处理所有配置
+  # 自动帮你添加到Link Binary、Embed Frameworks，再也不会有一致性错误了！
+  vendored_frameworks 'Frameworks/NodeMobile.xcframework'
 end
 
 post_install do |installer|
@@ -48,55 +52,12 @@ post_install do |installer|
     end
   end
 
-  # ========== 手动添加 NodeMobile.xcframework ==========
+  # 只保留桥接头文件的设置，其他的都不需要手动处理了
   app_project_path = 'Runner.xcodeproj'
   if File.exist?(app_project_path)
     app_project = Xcodeproj::Project.open(app_project_path)
     main_target = app_project.targets.find { |t| t.name == 'Runner' }
     if main_target
-      # 创建或获取 Frameworks 组，移除危险的清空操作，避免破坏现有项目结构
-      frameworks_group = app_project.main_group.find_subpath('Frameworks', true)
-      framework_path = 'Frameworks/NodeMobile.xcframework'
-      if File.exist?(framework_path)
-        # 先清理旧的同名引用，避免重复添加
-        # 清理组里的旧文件
-        old_file_ref = frameworks_group.files.find { |f| f.path == framework_path }
-        if old_file_ref
-          frameworks_group.remove_child(old_file_ref)
-        end
-        # 清理build phase里的旧引用
-        main_target.frameworks_build_phase.files.each do |bf|
-          if bf.file&.path == framework_path
-            main_target.frameworks_build_phase.remove_build_file(bf)
-          end
-        end
-        main_target.copy_files_build_phases.each do |bp|
-          if bp.name == 'Embed Frameworks'
-            bp.files.each do |bf|
-              if bf.file&.path == framework_path
-                bp.remove_build_file(bf)
-              end
-            end
-          end
-        end
-
-        # 添加新的引用
-        framework_ref = frameworks_group.new_file(framework_path)
-        # 添加到 Link Binary With Libraries
-        main_target.frameworks_build_phase.add_file_reference(framework_ref)
-        # 添加到 Embed Frameworks
-        embed_phase = main_target.copy_files_build_phases.find { |bp| bp.name == 'Embed Frameworks' }
-        unless embed_phase
-          embed_phase = main_target.new_copy_files_build_phase('Embed Frameworks')
-          embed_phase.dst_subfolder_spec = '10' # 10 = Frameworks 目录
-        end
-        embed_phase.add_file_reference(framework_ref)
-        puts "✅ 已添加并嵌入 NodeMobile.xcframework"
-      else
-        puts "⚠️ 未找到 NodeMobile.xcframework，请检查路径 ios/Frameworks/"
-      end
-
-      # ========== 设置 Objective-C Bridging Header ==========
       bridging_header_path = 'Runner/Runner-Bridging-Header.h'
       if File.exist?(bridging_header_path)
         main_target.build_configurations.each do |config|
@@ -109,7 +70,6 @@ post_install do |installer|
       app_project.save
     end
   end
-  # =======================================================
 
   installer.pods_project.build_configurations.each do |config|
     config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
