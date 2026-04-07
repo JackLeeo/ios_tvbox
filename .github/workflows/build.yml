@@ -14,6 +14,9 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      - name: 拉取Git LFS大文件（NodeMobile框架）
+        run: git lfs pull
+
       - name: 锁定Xcode稳定兼容版本
         run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
 
