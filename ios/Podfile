@@ -59,7 +59,6 @@ post_install do |installer|
     if main_target
       main_target.build_configurations.each do |config|
         # 用Xcode内置变量，绝对不会错
-        config.build_settings['HEADER_SEARCH_PATHS'] = '$(inherited) $(SRCROOT)/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework/Headers'
         config.build_settings['SWIFT_OBJC_BRIDGING_HEADER'] = 'Runner/Runner-Bridging-Header.h'
       end
       app_project.save
