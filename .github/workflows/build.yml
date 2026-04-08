@@ -34,7 +34,7 @@ jobs:
           mkdir -p ios/Frameworks
           cd ios/Frameworks
           # 删掉原来的旧的，彻底避免冲突！
-          rm -rf NodeMobile.framework NodeMobile.xcframework
+          rm -rf NodeMobile.framework NodeMobile.xcframework NodeMobile.podspec
           # 下载nodejs-mobile-react-native的npm包，里面包含了正确的iOS框架
           curl -L -o rn-nodejs.tgz https://registry.npmjs.org/nodejs-mobile-react-native/-/nodejs-mobile-react-native-18.20.4.tgz
           tar -xzf rn-nodejs.tgz
@@ -74,7 +74,8 @@ jobs:
           echo "" >> ios/Runner/Runner-Bridging-Header.h
           echo "#import \"GeneratedPluginRegistrant.h\"" >> ios/Runner/Runner-Bridging-Header.h
           echo "#import <Flutter/Flutter.h>" >> ios/Runner/Runner-Bridging-Header.h
-          echo "#import <NodeMobile/NodeMobile.h>" >> ios/Runner/Runner-Bridging-Header.h
+          # 用相对路径直接导入，不依赖搜索路径，绝对能找到！
+          echo "#import \"../Frameworks/NodeMobile.framework/Headers/NodeMobile.h\"" >> ios/Runner/Runner-Bridging-Header.h
           echo "" >> ios/Runner/Runner-Bridging-Header.h
           echo "@interface NodeJSBridge : NSObject" >> ios/Runner/Runner-Bridging-Header.h
           echo "+ (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar;" >> ios/Runner/Runner-Bridging-Header.h
@@ -135,7 +136,8 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=NO
+            AD_HOC_CODE_SIGNING_ALLOWED=NO \
+            FRAMEWORK_SEARCH_PATHS="$(inherited) $(SRCROOT)/Frameworks"
           cp -R build/Runner.xcarchive/Products/Applications/Runner.app ../build/ios/iphoneos/
           cd ..
 
