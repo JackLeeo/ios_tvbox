@@ -85,25 +85,7 @@ jobs:
           pod deintegrate
           pod install --repo-update
 
-      - name: 自动把NodeJSBridge.swift加到Xcode编译列表
-        run: |
-          cd ios
-          # 用CocoaPods自带的xcodeproj工具，自动修改项目配置
-          echo "require 'xcodeproj'" > add_file.rb
-          echo "" >> add_file.rb
-          echo "project_path = 'Runner.xcodeproj'" >> add_file.rb
-          echo "project = Xcodeproj::Project.open(project_path)" >> add_file.rb
-          echo "target = project.targets.find { |t| t.name == 'Runner' }" >> add_file.rb
-          echo "" >> add_file.rb
-          echo "# 找到NodeJSBridge.swift文件，自动加到编译源文件里" >> add_file.rb
-          echo "file_path = 'Runner/NodeJSBridge.swift'" >> add_file.rb
-          echo "file_ref = project.main_group.find_subpath(file_path, true)" >> add_file.rb
-          echo "target.source_build_phase.add_file_reference(file_ref, true)" >> add_file.rb
-          echo "" >> add_file.rb
-          echo "project.save" >> add_file.rb
-          ruby add_file.rb
-          rm add_file.rb
-
+     
       - name: 最终检查NodeMobile.framework
         run: |
           cd ios
