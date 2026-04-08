@@ -29,10 +29,8 @@ jobs:
 
       - name: 下载NodeMobile XCFramework
         run: |
-          # 自动下载nodejs-mobile的iOS框架，不需要你提交大文件到Git
           cd ios/Frameworks
-          # 下载nodejs-mobile v18.17.1的iOS框架
-          curl -L -o nodejs-mobile-ios.zip https://github.com/nodejs-mobile/nodejs-mobile/releases/download/v18.20.4/nodejs-mobile-v18.20.4-ios.zip
+          curl -L -o nodejs-mobile-ios.zip https://github.com/nodejs-mobile/nodejs-mobile/releases/download/v18.17.1/nodejs-mobile-v18.17.1-ios-framework.zip
           unzip -o nodejs-mobile-ios.zip
           rm nodejs-mobile-ios.zip
           echo "✅ 已下载NodeMobile框架"
@@ -45,7 +43,6 @@ jobs:
 
       - name: 拆解XCFramework为普通Framework
         run: |
-          # 把XCFramework里的arm64版本直接提取出来，避免Xcode自动解压导致的路径变化
           cp -R ios/Frameworks/NodeMobile.xcframework/ios-arm64/NodeMobile.framework ios/Frameworks/
           echo "✅ 已拆解XCFramework为普通Framework"
 
@@ -56,7 +53,6 @@ jobs:
 
       - name: 生成自定义桥接头
         run: |
-          # 手动写入NodeJSBridge的接口，让Swift能识别到静态方法
           echo "#ifndef Runner_Bridging_Header_h" > ios/Runner/Runner-Bridging-Header.h
           echo "#define Runner_Bridging_Header_h" >> ios/Runner/Runner-Bridging-Header.h
           echo "" >> ios/Runner/Runner-Bridging-Header.h
@@ -89,7 +85,9 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=NO
+            AD_HOC_CODE_SIGNING_ALLOWED=NO \
+            FRAMEWORK_SEARCH_PATHS="\$(inherited) \$(SRCROOT)/Frameworks" \
+            OTHER_LDFLAGS="\$(inherited) -framework NodeMobile"
           cp -R build/Runner.xcarchive/Products/Applications/Runner.app ../build/ios/iphoneos/
 
       - name: 打包IPA
