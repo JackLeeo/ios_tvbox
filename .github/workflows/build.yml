@@ -68,10 +68,10 @@ jobs:
       - name: 在原有Podfile基础上添加链接参数
         run: |
           cd ios
-          # 在CLANG_ALLOW_NON_DETERMINISTIC_MODULES那行后面，插入我们的两个参数
-          sed -i '/config.build_settings\['\''CLANG_ALLOW_NON_DETERMINISTIC_MODULES'\''\]/a\        config.build_settings['\''FRAMEWORK_SEARCH_PATHS'\''] = '\''$(inherited) $(SRCROOT)/Frameworks'\''\n        config.build_settings['\''OTHER_LDFLAGS'\''] = '\''$(inherited) -framework NodeMobile'\''' Podfile
-          # 同时，我们要移除原来的pod 'NodeMobile', :path => 'Frameworks'，因为我们现在用普通framework了
-          sed -i '/pod '\''NodeMobile'\'', :path => '\''Frameworks'\''/d' Podfile
+          # macOS的BSD sed需要 -i '' 参数
+          sed -i '' '/config.build_settings\['\''CLANG_ALLOW_NON_DETERMINISTIC_MODULES'\''\]/a\        config.build_settings['\''FRAMEWORK_SEARCH_PATHS'\''] = '\''$(inherited) $(SRCROOT)/Frameworks'\''\n        config.build_settings['\''OTHER_LDFLAGS'\''] = '\''$(inherited) -framework NodeMobile'\''' Podfile
+          # 移除原来的NodeMobile pod引用
+          sed -i '' '/pod '\''NodeMobile'\'', :path => '\''Frameworks'\''/d' Podfile
           echo "✅ 已修改Podfile"
           cat Podfile
 
