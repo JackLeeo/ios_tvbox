@@ -85,24 +85,14 @@ jobs:
           pod deintegrate
           pod install --repo-update
 
-      - name: 自动把NodeJSBridge.swift加到Xcode编译列表
+      - name: 手动编译NodeJSBridge.swift（绕过Xcode项目配置）
         run: |
           cd ios
-          # 用CocoaPods自带的xcodeproj工具，自动修改项目配置
-          echo "require 'xcodeproj'" > add_file.rb
-          echo "" >> add_file.rb
-          echo "project_path = 'Runner.xcodeproj'" >> add_file.rb
-          echo "project = Xcodeproj::Project.open(project_path)" >> add_file.rb
-          echo "target = project.targets.find { |t| t.name == 'Runner' }" >> add_file.rb
-          echo "" >> add_file.rb
-          echo "# 找到NodeJSBridge.swift文件，自动加到编译源文件里" >> add_file.rb
-          echo "file_path = 'Runner/NodeJSBridge.swift'" >> add_file.rb
-          echo "file_ref = project.main_group.find_subpath(file_path, true)" >> add_file.rb
-          echo "target.source_build_phase.add_file_reference(file_ref, true)" >> add_file.rb
-          echo "" >> add_file.rb
-          echo "project.save" >> add_file.rb
-          ruby add_file.rb
-          rm add_file.rb
+          # 手动把NodeJSBridge.swift编译成.o文件
+          SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
+          swiftc -c Runner/NodeJSBridge.swift -o NodeJSBridge.o -sdk $SDK_PATH -target arm64-apple-ios13.0
+          # 检查编译结果
+          ls -la NodeJSBridge.o
 
       - name: 最终检查NodeMobile.framework
         run: |
@@ -115,13 +105,12 @@ jobs:
             echo "❌ 二进制文件丢失了"
             exit 1
           fi
-          # 检查NodeJSBridge是否已经加到项目里
-          grep NodeJSBridge Runner.xcodeproj/project.pbxproj
 
       - name: 无签名构建（TrollStore专用）
         run: |
           flutter build ios --release --no-codesign --config-only
           cd ios
+          # 链接的时候，把我们手动编译的NodeJSBridge.o加进去
           xcodebuild -workspace Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
@@ -131,7 +120,8 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=NO
+            AD_HOC_CODE_SIGNING_ALLOWED=NO \
+            OTHER_LDFLAGS="-Wl,-force_load,$PWD/NodeJSBridge.o"
           cp -R build/Runner.xcarchive/Products/Applications/Runner.app ../build/ios/iphoneos/
           cd ..
 
