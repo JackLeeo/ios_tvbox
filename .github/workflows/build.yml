@@ -47,6 +47,7 @@ jobs:
 
       - name: 检查NodeMobile二进制文件
         run: |
+          ls -la ios/Frameworks/
           ls -la ios/Frameworks/NodeMobile.framework/
           file ios/Frameworks/NodeMobile.framework/NodeMobile
 
@@ -70,6 +71,12 @@ jobs:
           cd ios
           pod deintegrate
           pod install --repo-update
+
+      - name: 最终检查NodeMobile.framework
+        run: |
+          cd ios
+          ls -la Frameworks/
+          ls -la Frameworks/NodeMobile.framework/
 
       - name: 无签名构建
         run: |
