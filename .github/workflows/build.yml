@@ -30,20 +30,18 @@ jobs:
 
       - name: 下载并解压NodeMobile iOS框架
         run: |
-          cd ios/Frameworks
+          # 先创建Frameworks目录，确保它存在
+          mkdir -p ios/Frameworks
+           cd ios/Frameworks
+           # 删掉可能存在的旧的
+          rm -rf NodeMobile.framework NodeMobile.xcframework
           curl -L -o nodejs-mobile-ios.zip https://github.com/nodejs-mobile/nodejs-mobile/releases/download/v18.20.4/nodejs-mobile-v18.20.4-ios.zip
           unzip -o nodejs-mobile-ios.zip
           rm nodejs-mobile-ios.zip
-          # 先尝试复制真机版本
-          if [ -d "Release-iphoneos/NodeMobile.framework" ]; then
+          # 👇 新版本的zip里，直接是xcframework，我们直接把真机的arm64版本复制出来
+          if [ -d "NodeMobile.xcframework/ios-arm64/NodeMobile.framework" ]; then
             echo "找到真机版本NodeMobile.framework"
-            rm -rf NodeMobile.framework
-            cp -R Release-iphoneos/NodeMobile.framework ./
-          # 找不到就用通用版本
-          elif [ -d "Release-universal/NodeMobile.framework" ]; then
-            echo "找到通用版本NodeMobile.framework"
-            rm -rf NodeMobile.framework
-            cp -R Release-universal/NodeMobile.framework ./
+            cp -R NodeMobile.xcframework/ios-arm64/NodeMobile.framework ./
           else
             echo "❌ 找不到NodeMobile.framework，解压失败"
             ls -la
