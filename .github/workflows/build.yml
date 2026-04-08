@@ -13,6 +13,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: 初始化.gitattributes
+        run: |
+          # 创建.gitattributes文件
+          touch .gitattributes
+
       - name: 检查所有LFS指针文件
         run: |
           # 找到所有framework里的二进制文件，检查它们是不是LFS指针
