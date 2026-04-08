@@ -90,7 +90,12 @@ jobs:
           cd ios
           # 手动把NodeJSBridge.swift编译成.o文件
           SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
-          swiftc -c Runner/NodeJSBridge.swift -o NodeJSBridge.o -sdk $SDK_PATH -target arm64-apple-ios13.0
+          # 加上Flutter和NodeMobile的framework搜索路径，解决找不到模块的问题
+          swiftc -c Runner/NodeJSBridge.swift -o NodeJSBridge.o \
+            -sdk $SDK_PATH \
+            -target arm64-apple-ios13.0 \
+            -F $FLUTTER_ROOT/bin/cache/artifacts/engine/ios/ \
+            -F $PWD/Frameworks
           # 检查编译结果
           ls -la NodeJSBridge.o
 
