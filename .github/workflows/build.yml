@@ -28,20 +28,22 @@ jobs:
           rm -rf ~/Library/Developer/Xcode/DerivedData/*
           rm -rf ~/Library/Developer/Xcode/ModuleCache.noindex
 
-      - name: 下载并解压NodeMobile iOS框架
+      - name: 下载并解压NodeMobile iOS框架（React Native版，匹配你的API）
         run: |
           # 先创建Frameworks目录，确保它存在
           mkdir -p ios/Frameworks
           cd ios/Frameworks
           # 删掉原来的旧的，彻底避免冲突！
           rm -rf NodeMobile.framework NodeMobile.xcframework
-          curl -L -o nodejs-mobile-ios.zip https://github.com/nodejs-mobile/nodejs-mobile/releases/download/v18.20.4/nodejs-mobile-v18.20.4-ios.zip
-          unzip -o nodejs-mobile-ios.zip
-          rm nodejs-mobile-ios.zip
-          # 新版本的zip里，直接是xcframework，我们直接把真机的arm64版本复制出来
-          if [ -d "NodeMobile.xcframework/ios-arm64/NodeMobile.framework" ]; then
-            echo "找到真机版本NodeMobile.framework"
-            cp -R NodeMobile.xcframework/ios-arm64/NodeMobile.framework ./
+          # 下载nodejs-mobile-react-native的npm包，里面包含了正确的iOS框架
+          curl -L -o rn-nodejs.tgz https://registry.npmjs.org/nodejs-mobile-react-native/-/nodejs-mobile-react-native-18.20.4.tgz
+          tar -xzf rn-nodejs.tgz
+          rm rn-nodejs.tgz
+          # 从npm包里提取iOS的NodeMobile.framework
+          if [ -d "package/ios/NodeMobile.framework" ]; then
+            echo "找到正确的React Native版NodeMobile.framework"
+            cp -R package/ios/NodeMobile.framework ./
+            rm -rf package
           else
             echo "❌ 找不到NodeMobile.framework，解压失败"
             ls -la
@@ -86,7 +88,25 @@ jobs:
           pod deintegrate
           pod install --repo-update
 
-     
+      - name: 自动把NodeJSBridge.swift加到Xcode编译列表
+        run: |
+          cd ios
+          # 用CocoaPods自带的xcodeproj工具，自动修改项目配置
+          echo "require 'xcodeproj'" > add_file.rb
+          echo "" >> add_file.rb
+          echo "project_path = 'Runner.xcodeproj'" >> add_file.rb
+          echo "project = Xcodeproj::Project.open(project_path)" >> add_file.rb
+          echo "target = project.targets.find { |t| t.name == 'Runner' }" >> add_file.rb
+          echo "" >> add_file.rb
+          echo "# 找到NodeJSBridge.swift文件，自动加到编译源文件里" >> add_file.rb
+          echo "file_path = 'Runner/NodeJSBridge.swift'" >> add_file.rb
+          echo "file_ref = project.main_group.find_subpath(file_path, true)" >> add_file.rb
+          echo "target.source_build_phase.add_file_reference(file_ref, true)" >> add_file.rb
+          echo "" >> add_file.rb
+          echo "project.save" >> add_file.rb
+          ruby add_file.rb
+          rm add_file.rb
+
       - name: 最终检查NodeMobile.framework
         run: |
           cd ios
