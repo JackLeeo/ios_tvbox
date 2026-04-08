@@ -60,8 +60,8 @@ post_install do |installer|
         config.build_settings['GCC_NO_VALIDATE_PCH'] = 'YES'
         # 同时允许非确定性模块，彻底绕开路径检查
         config.build_settings['CLANG_ALLOW_NON_DETERMINISTIC_MODULES'] = 'YES'
-        # 修复路径：$(SRCROOT)是Runner目录，所以要../回到ios目录
-        config.build_settings['FRAMEWORK_SEARCH_PATHS'] = '$(inherited) $(SRCROOT)/../Frameworks'
+        # 👇 修复路径！现在是根目录下的Frameworks，所以要往上走两级！
+        config.build_settings['FRAMEWORK_SEARCH_PATHS'] = '$(inherited) $(SRCROOT)/../../Frameworks'
         config.build_settings['OTHER_LDFLAGS'] = '$(inherited) -framework NodeMobile'
       end
       app_project.save
