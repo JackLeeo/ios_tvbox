@@ -71,6 +71,7 @@ jobs:
           echo "" >> ios/Runner/Runner-Bridging-Header.h
           echo "#import \"GeneratedPluginRegistrant.h\"" >> ios/Runner/Runner-Bridging-Header.h
           echo "#import <Flutter/Flutter.h>" >> ios/Runner/Runner-Bridging-Header.h
+          echo "#import <NodeMobile/NodeMobile.h>" >> ios/Runner/Runner-Bridging-Header.h
           echo "" >> ios/Runner/Runner-Bridging-Header.h
           echo "@interface NodeJSBridge : NSObject" >> ios/Runner/Runner-Bridging-Header.h
           echo "+ (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar;" >> ios/Runner/Runner-Bridging-Header.h
