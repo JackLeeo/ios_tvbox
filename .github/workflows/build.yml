@@ -83,6 +83,11 @@ jobs:
           echo "" >> ios/Runner/Runner-Bridging-Header.h
           echo "#endif" >> ios/Runner/Runner-Bridging-Header.h
 
+      - name: 清理Podfile里的旧NodeMobile配置
+        run: |
+          # 删掉Podfile里的NodeMobile pod配置，因为我们现在手动引入了
+          sed -i '' '/pod.*NodeMobile.*Frameworks/d' ios/Podfile
+
       - name: 重新安装iOS依赖
         run: |
           flutter pub get
