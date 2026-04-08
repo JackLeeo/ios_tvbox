@@ -31,13 +31,19 @@ jobs:
       - name: 下载并解压NodeMobile iOS框架
         run: |
           cd ios/Frameworks
-          curl -L -o nodejs-mobile-ios.zip https://github.com/nodejs-mobile/nodejs-mobile/releases/download/v18.20.4/nodejs-mobile-v18.20.4-ios.zip
+          curl -L -o nodejs-mobile-ios.zip https://github.com/nodejs-mobile/nodejs-mobile/releases/download/v18.17.1/nodejs-mobile-v18.17.1-ios-framework.zip
+          unzip -o nodejs-mobile-ios.zip
           rm nodejs-mobile-ios.zip
-          # 自动找到NodeMobile.framework的位置
-          NODE_FRAMEWORK=$(find . -name "NodeMobile.framework" -type d | head -1)
-          if [ -n "$NODE_FRAMEWORK" ]; then
-            echo "找到NodeMobile.framework: $NODE_FRAMEWORK"
-            cp -R "$NODE_FRAMEWORK" ./
+          # 先尝试复制真机版本
+          if [ -d "Release-iphoneos/NodeMobile.framework" ]; then
+            echo "找到真机版本NodeMobile.framework"
+            rm -rf NodeMobile.framework
+            cp -R Release-iphoneos/NodeMobile.framework ./
+          # 找不到就用通用版本
+          elif [ -d "Release-universal/NodeMobile.framework" ]; then
+            echo "找到通用版本NodeMobile.framework"
+            rm -rf NodeMobile.framework
+            cp -R Release-universal/NodeMobile.framework ./
           else
             echo "❌ 找不到NodeMobile.framework，解压失败"
             ls -la
@@ -48,7 +54,12 @@ jobs:
         run: |
           ls -la ios/Frameworks/
           ls -la ios/Frameworks/NodeMobile.framework/
-          file ios/Frameworks/NodeMobile.framework/NodeMobile
+          if [ -f "ios/Frameworks/NodeMobile.framework/NodeMobile" ]; then
+            file ios/Frameworks/NodeMobile.framework/NodeMobile
+          else
+            echo "❌ 还是没有二进制文件，解压失败"
+            exit 1
+          fi
 
       - name: 预检查（Dart静态分析）
         run: |
@@ -81,7 +92,12 @@ jobs:
           cd ios
           ls -la Frameworks/
           ls -la Frameworks/NodeMobile.framework/
-          file Frameworks/NodeMobile.framework/NodeMobile
+          if [ -f "Frameworks/NodeMobile.framework/NodeMobile" ]; then
+            file Frameworks/NodeMobile.framework/NodeMobile
+          else
+            echo "❌ 二进制文件丢失了"
+            exit 1
+          fi
 
       - name: 无签名构建（TrollStore专用）
         run: |
