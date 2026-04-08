@@ -34,8 +34,7 @@ target 'Runner' do
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-  
-  pod 'NodeMobile', :path => 'Frameworks'
+  # 👇 这里我们移除了原来的 pod 'NodeMobile', :path => 'Frameworks'
 end
 
 post_install do |installer|
@@ -62,6 +61,9 @@ post_install do |installer|
         config.build_settings['GCC_NO_VALIDATE_PCH'] = 'YES'
         # 同时允许非确定性模块，彻底绕开路径检查
         config.build_settings['CLANG_ALLOW_NON_DETERMINISTIC_MODULES'] = 'YES'
+        # 👇 这里是我们添加的两个参数，只给主项目生效
+        config.build_settings['FRAMEWORK_SEARCH_PATHS'] = '$(inherited) $(SRCROOT)/Frameworks'
+        config.build_settings['OTHER_LDFLAGS'] = '$(inherited) -framework NodeMobile'
       end
       app_project.save
     end
