@@ -39,14 +39,15 @@ jobs:
           curl -L -o rn-nodejs.tgz https://registry.npmjs.org/nodejs-mobile-react-native/-/nodejs-mobile-react-native-18.20.4.tgz
           tar -xzf rn-nodejs.tgz
           rm rn-nodejs.tgz
-          # 从npm包里提取iOS的NodeMobile.framework
-          if [ -d "package/ios/NodeMobile.framework" ]; then
-            echo "找到正确的React Native版NodeMobile.framework"
-            cp -R package/ios/NodeMobile.framework ./
+          # 自动查找NodeMobile.framework的位置，不管它藏在哪个子目录
+          NODE_MOBILE_PATH=$(find package -name "NodeMobile.framework" -type d | head -n 1)
+          if [ -n "$NODE_MOBILE_PATH" ]; then
+            echo "找到NodeMobile.framework，路径: $NODE_MOBILE_PATH"
+            cp -R "$NODE_MOBILE_PATH" ./
             rm -rf package
           else
-            echo "❌ 找不到NodeMobile.framework，解压失败"
-            ls -la
+            echo "❌ 找不到NodeMobile.framework，打印目录结构"
+            ls -laR package
             exit 1
           fi
 
