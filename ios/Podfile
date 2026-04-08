@@ -34,6 +34,9 @@ target 'Runner' do
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+  
+  # 👇 就是这行！我之前不小心删了！CocoaPods靠它来自动链接本地的NodeMobile框架！
+  pod 'NodeMobile', :path => 'Frameworks'
 end
 
 post_install do |installer|
@@ -60,9 +63,6 @@ post_install do |installer|
         config.build_settings['GCC_NO_VALIDATE_PCH'] = 'YES'
         # 同时允许非确定性模块，彻底绕开路径检查
         config.build_settings['CLANG_ALLOW_NON_DETERMINISTIC_MODULES'] = 'YES'
-        # 👇 修复路径！现在是根目录下的Frameworks，所以要往上走两级！
-        config.build_settings['FRAMEWORK_SEARCH_PATHS'] = '$(inherited) $(SRCROOT)/../../Frameworks'
-        config.build_settings['OTHER_LDFLAGS'] = '$(inherited) -framework NodeMobile'
       end
       app_project.save
     end
