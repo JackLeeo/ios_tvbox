@@ -83,10 +83,12 @@ jobs:
           echo "" >> ios/Runner/Runner-Bridging-Header.h
           echo "#endif" >> ios/Runner/Runner-Bridging-Header.h
 
-      - name: 清理Podfile里的旧NodeMobile配置
+      - name: 清理Podfile里的旧NodeMobile配置，并添加主项目搜索路径
         run: |
           # 删掉Podfile里的NodeMobile pod配置，因为我们现在手动引入了
           sed -i '' '/pod.*NodeMobile.*Frameworks/d' ios/Podfile
+          # 给主项目添加FRAMEWORK_SEARCH_PATHS，只影响主项目，不影响第三方插件
+          sed -i '' '/config.build_settings\['\''SWIFT_OBJC_BRIDGING_HEADER'\''\]/a\        config.build_settings['\''FRAMEWORK_SEARCH_PATHS'\''] = '\''$(inherited) $(SRCROOT)/Frameworks'\''' ios/Podfile
 
       - name: 重新安装iOS依赖
         run: |
@@ -141,8 +143,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_IDENTITY="" \
-            AD_HOC_CODE_SIGNING_ALLOWED=NO \
-            FRAMEWORK_SEARCH_PATHS="$(inherited) $(SRCROOT)/Frameworks"
+            AD_HOC_CODE_SIGNING_ALLOWED=NO
           cp -R build/Runner.xcarchive/Products/Applications/Runner.app ../build/ios/iphoneos/
           cd ..
 
