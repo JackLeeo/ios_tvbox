@@ -28,40 +28,6 @@ jobs:
           rm -rf ~/Library/Developer/Xcode/DerivedData/*
           rm -rf ~/Library/Developer/Xcode/ModuleCache.noindex
 
-      - name: 下载并解压NodeMobile iOS框架（React Native版，匹配你的API）
-        run: |
-          # 先创建Frameworks目录，确保它存在
-          mkdir -p ios/Frameworks
-          cd ios/Frameworks
-          # 删掉原来的旧的，彻底避免冲突！
-          rm -rf NodeMobile.framework NodeMobile.xcframework NodeMobile.podspec
-          # 下载nodejs-mobile-react-native的npm包，里面包含了正确的iOS框架
-          curl -L -o rn-nodejs.tgz https://registry.npmjs.org/nodejs-mobile-react-native/-/nodejs-mobile-react-native-18.20.4.tgz
-          tar -xzf rn-nodejs.tgz
-          rm rn-nodejs.tgz
-          # 自动查找NodeMobile.framework的位置，不管它藏在哪个子目录
-          NODE_MOBILE_PATH=$(find package -name "NodeMobile.framework" -type d | head -n 1)
-          if [ -n "$NODE_MOBILE_PATH" ]; then
-            echo "找到NodeMobile.framework，路径: $NODE_MOBILE_PATH"
-            cp -R "$NODE_MOBILE_PATH" ./
-            rm -rf package
-          else
-            echo "❌ 找不到NodeMobile.framework，打印目录结构"
-            ls -laR package
-            exit 1
-          fi
-
-      - name: 验证NodeMobile二进制文件
-        run: |
-          ls -la ios/Frameworks/
-          ls -la ios/Frameworks/NodeMobile.framework/
-          if [ -f "ios/Frameworks/NodeMobile.framework/NodeMobile" ]; then
-            file ios/Frameworks/NodeMobile.framework/NodeMobile
-          else
-            echo "❌ 还是没有二进制文件，解压失败"
-            exit 1
-          fi
-
       - name: 预检查（Dart静态分析）
         run: |
           flutter pub get
@@ -74,8 +40,8 @@ jobs:
           echo "" >> ios/Runner/Runner-Bridging-Header.h
           echo "#import \"GeneratedPluginRegistrant.h\"" >> ios/Runner/Runner-Bridging-Header.h
           echo "#import <Flutter/Flutter.h>" >> ios/Runner/Runner-Bridging-Header.h
-          # 用相对路径直接导入，不依赖搜索路径，绝对能找到！
-          echo "#import \"../Frameworks/NodeMobile.framework/Headers/NodeMobile.h\"" >> ios/Runner/Runner-Bridging-Header.h
+          # 现在pod会自动配置搜索路径，直接用标准的framework导入就好了
+          echo "#import <NodeMobile/NodeMobile.h>" >> ios/Runner/Runner-Bridging-Header.h
           echo "" >> ios/Runner/Runner-Bridging-Header.h
           echo "@interface NodeJSBridge : NSObject" >> ios/Runner/Runner-Bridging-Header.h
           echo "+ (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar;" >> ios/Runner/Runner-Bridging-Header.h
@@ -83,16 +49,12 @@ jobs:
           echo "" >> ios/Runner/Runner-Bridging-Header.h
           echo "#endif" >> ios/Runner/Runner-Bridging-Header.h
 
-      - name: 清理Podfile里的旧NodeMobile配置，并添加主项目配置
+      - name: 自动添加nodejs-mobile-react-native到Podfile
         run: |
-          # 删掉Podfile里的NodeMobile pod配置，因为我们现在手动引入了
+          # 删掉原来的旧NodeMobile配置
           sed -i '' '/pod.*NodeMobile.*Frameworks/d' ios/Podfile
-          # 给主项目添加配置：
-          # 1. FRAMEWORK_SEARCH_PATHS：只给主项目加搜索路径
-          # 2. ENABLE_BITCODE：关掉Bitcode，因为NodeMobile不支持
-          # 3. 保留原来的绕开模块校验的配置
-          sed -i '' '/config.build_settings\['\''SWIFT_OBJC_BRIDGING_HEADER'\''\]/a\        config.build_settings['\''FRAMEWORK_SEARCH_PATHS'\''] = '\''$(inherited) $(SRCROOT)/Frameworks'\''' ios/Podfile
-          sed -i '' '/config.build_settings\['\''SWIFT_OBJC_BRIDGING_HEADER'\''\]/a\        config.build_settings['\''ENABLE_BITCODE'\''] = '\''NO'\''' ios/Podfile
+          # 加上官方的nodejs-mobile-react-native pod，自动帮我们搞定所有配置
+          sed -i '' '/flutter_install_all_ios_pods/a\  pod '\''nodejs-mobile-react-native'\''' ios/Podfile
 
       - name: 重新安装iOS依赖
         run: |
@@ -101,48 +63,32 @@ jobs:
           pod deintegrate
           pod install --repo-update
 
-      - name: 自动配置Xcode项目
+      - name: 自动把NodeJSBridge.swift加到Xcode编译列表
         run: |
           cd ios
-          # 用CocoaPods自带的xcodeproj工具，自动修改项目配置
-          echo "require 'xcodeproj'" > setup_project.rb
-          echo "" >> setup_project.rb
-          echo "project_path = 'Runner.xcodeproj'" >> setup_project.rb
-          echo "project = Xcodeproj::Project.open(project_path)" >> setup_project.rb
-          echo "target = project.targets.find { |t| t.name == 'Runner' }" >> setup_project.rb
-          echo "" >> setup_project.rb
-          echo "# 1. 把NodeJSBridge.swift加到编译源文件里" >> setup_project.rb
-          echo "file_path = 'Runner/NodeJSBridge.swift'" >> setup_project.rb
-          echo "file_ref = project.main_group.find_subpath(file_path, true)" >> setup_project.rb
-          echo "target.source_build_phase.add_file_reference(file_ref, true)" >> setup_project.rb
-          echo "" >> setup_project.rb
-          echo "# 2. 把NodeMobile.framework加到Linked Frameworks and Libraries" >> setup_project.rb
-          echo "framework_path = 'Frameworks/NodeMobile.framework'" >> setup_project.rb
-          echo "framework_ref = project.main_group.find_subpath(framework_path, true)" >> setup_project.rb
-          echo "target.frameworks_build_phase.add_file_reference(framework_ref, true)" >> setup_project.rb
-          echo "" >> setup_project.rb
-          echo "# 3. 把NodeMobile.framework加到Embedded Binaries，打包到app里" >> setup_project.rb
-          echo "target.embed_frameworks_build_phase.add_file_reference(framework_ref, true)" >> setup_project.rb
-          echo "" >> setup_project.rb
-          echo "project.save" >> setup_project.rb
-          ruby setup_project.rb
-          rm setup_project.rb
+          # 只需要加这个Swift文件就好了，其他的pod都帮我们搞定了
+          echo "require 'xcodeproj'" > add_file.rb
+          echo "" >> add_file.rb
+          echo "project_path = 'Runner.xcodeproj'" >> add_file.rb
+          echo "project = Xcodeproj::Project.open(project_path)" >> add_file.rb
+          echo "target = project.targets.find { |t| t.name == 'Runner' }" >> add_file.rb
+          echo "" >> add_file.rb
+          echo "# 找到NodeJSBridge.swift文件，自动加到编译源文件里" >> add_file.rb
+          echo "file_path = 'Runner/NodeJSBridge.swift'" >> add_file.rb
+          echo "file_ref = project.main_group.find_subpath(file_path, true)" >> add_file.rb
+          echo "target.source_build_phase.add_file_reference(file_ref, true)" >> add_file.rb
+          echo "" >> add_file.rb
+          echo "project.save" >> add_file.rb
+          ruby add_file.rb
+          rm add_file.rb
 
-      - name: 最终检查所有配置
+      - name: 最终检查
         run: |
           cd ios
-          ls -la Frameworks/
-          ls -la Frameworks/NodeMobile.framework/
-          if [ -f "Frameworks/NodeMobile.framework/NodeMobile" ]; then
-            file Frameworks/NodeMobile.framework/NodeMobile
-          else
-            echo "❌ 二进制文件丢失了"
-            exit 1
-          fi
           # 检查NodeJSBridge是否已经加到项目里
           grep NodeJSBridge Runner.xcodeproj/project.pbxproj
-          # 检查NodeMobile是否已经加到项目里
-          grep NodeMobile Runner.xcodeproj/project.pbxproj
+          # 检查nodejs-mobile是否已经加到Pods里
+          grep nodejs-mobile Podfile.lock
 
       - name: 无签名构建（TrollStore专用）
         run: |
