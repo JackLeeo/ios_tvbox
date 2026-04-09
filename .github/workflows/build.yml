@@ -54,7 +54,8 @@ jobs:
           # 删掉原来的旧NodeMobile配置
           sed -i '' '/pod.*NodeMobile.*Frameworks/d' ios/Podfile
           # 加上官方的nodejs-mobile-react-native pod，自动帮我们搞定所有配置
-          sed -i '' '/flutter_install_all_ios_pods/a\  pod '\''nodejs-mobile-react-native'\''' ios/Podfile
+          # 用perl来加，避免sed和YAML的转义问题
+          perl -i -pe 'print "  pod '\''nodejs-mobile-react-native'\''\n" if /flutter_install_all_ios_pods/' ios/Podfile
 
       - name: 重新安装iOS依赖
         run: |
