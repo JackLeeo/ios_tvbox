@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/home_viewmodel.dart';
-import '../core/log_service.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -15,125 +14,89 @@ class _HomeViewState extends State<HomeView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<HomeViewModel>().loadData();
+      Provider.of<HomeViewModel>(context, listen: false).loadData();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final vm = context.watch<HomeViewModel>();
-    // 提取为局部变量，让Dart可以进行类型提升，解决空安全问题
-    final loading = vm.loading;
-    final error = vm.error;
-    final videoList = vm.videoList;
-
+    final vm = Provider.of<HomeViewModel>(context);
+    
     return Scaffold(
-      appBar: AppBar(title: const Text("TVBox")),
-      body: Stack(
-        children: [
-          // 主内容区域
-          loading
-              ? const Center(child: CircularProgressIndicator())
-              : error != null
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          error, // 局部变量已被Dart提升为非空类型，无需!也不会有警告
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ),
-                    )
-                  : GridView.builder(
-                      padding: const EdgeInsets.all(8),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        childAspectRatio: 0.7,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                      ),
-                      itemCount: videoList.length,
-                      itemBuilder: (ctx, i) {
-                        final item = videoList[i];
-                        return Card(
-                          clipBehavior: Clip.hardEdge,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(
-                                child: Image.network(
-                                  item.pic ?? '',
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(4),
-                                child: Text(
-                                  item.title ?? '',
-                                  maxLines: 1,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ),
-                            ],
+      appBar: AppBar(
+        title: const Text('TVBox'),
+      ),
+      body: vm.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                // 分类标签栏
+                if (vm.categories.isNotEmpty)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: List.generate(vm.categories.length, (index) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: ChoiceChip(
+                            label: Text(vm.categories[index].name),
+                            selected: vm.currentIndex == index,
+                            onSelected: (selected) {
+                              if (selected) {
+                                vm.loadCategoryVideos(index);
+                              }
+                            },
                           ),
                         );
-                      },
-                    ),
-          // 日志悬浮面板
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 160,
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.9), // 修复弃用API
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "JS执行日志",
-                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                      TextButton(
-                        onPressed: () => AppLogService.instance.clear(),
-                        style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(40, 20)),
-                        child: const Text("清空", style: TextStyle(color: Colors.cyanAccent, fontSize: 11)),
-                      ),
-                    ],
-                  ),
-                  const Divider(color: Colors.grey, height: 1),
-                  Expanded(
-                    child: AnimatedBuilder(
-                      animation: AppLogService.instance,
-                      builder: (_, __) {
-                        final logs = AppLogService.instance.logs;
-                        return ListView.builder(
-                          reverse: true,
-                          itemCount: logs.length,
-                          itemBuilder: (_, idx) {
-                            final line = logs[logs.length - 1 - idx];
-                            return Text(
-                              line,
-                              style: const TextStyle(color: Colors.white70, fontSize: 10, height: 1.2),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            );
-                          },
-                        );
-                      },
+                      }),
                     ),
                   ),
-                ],
-              ),
+                // 视频列表
+                Expanded(
+                  child: GridView.builder(
+                    padding: const EdgeInsets.all(8.0),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 0.7,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                    ),
+                    itemCount: vm.videos.length,
+                    itemBuilder: (context, index) {
+                      final video = vm.videos[index];
+                      return Card(
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: Image.network(
+                                video.cover ?? '',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    color: Colors.grey,
+                                    child: const Icon(Icons.video_library),
+                                  );
+                                },
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Text(
+                                video.name ?? '',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 }
