@@ -1,0 +1,109 @@
+{
+    "list": [
+        {
+          "circle": 0,
+          "land": 0,
+          "ratio": 0,
+          "type_name": "喜剧",
+          "vod_actor": "沈腾,马丽,萨日娜,史彭元,张子栋,李嘉琦,孙贵权,杨文哲,赵凤霞,马文波,陈冰,骆佳,贾冰,魏翔,于洋",
+          "vod_area": "中国",
+          "vod_content": "😎关注公众号《OK猫开发》 \\u0026lt;p\\u0026gt;困苦的爹，辛劳的妈，破烂的院子，破碎的他。西虹市做大做强的路上怎么把老马家落下了？！“汤里没油，兜里没子”的马成钢和春兰，赶驴打工，家徒四壁，而儿子马继业则是他们逆天改命的唯一希望。小马很争气，年年好成绩，一点不娇气，意志贼坚毅。但随着小马一天天长大，他却逐渐发现身边的人们都越来越不对劲……\\u0026lt;/p\\u0026gt;",
+          "vod_director": "",
+          "vodFlags": [
+            {
+              "activated": false,
+              "episodes": [
+                {
+                  "activated": false,
+                  "desc": "",
+                  "index": 0,
+                  "name": "高清",
+                  "number": -1,
+                  "selected": false,
+                  "url": "https://vip.ffzy-video.com/20240926/3057_c1502ae5/index.m3u8"
+                }
+              ],
+              "flag": "天天线路①☝",
+              "position": -1,
+              "show": "天天线路①☝"
+            },
+            {
+              "activated": false,
+              "episodes": [
+                {
+                  "activated": false,
+                  "desc": "",
+                  "index": 0,
+                  "name": "1080P",
+                  "number": -1,
+                  "selected": false,
+                  "url": "NBY-XMYAES62bac3089ee38d7fd4a3da9842bd4ef4d1f526f9d98c5eb06d15d67d0bbaf35497ff3302e65338ee09ec3a7497671d3d|84f621bd4bfac2f2072ee495d829a1c8"
+                }
+              ],
+              "flag": "天天线路②☝",
+              "position": -1,
+              "show": "天天线路②☝"
+            },
+            {
+              "activated": false,
+              "episodes": [
+                {
+                  "activated": false,
+                  "desc": "",
+                  "index": 0,
+                  "name": "高清",
+                  "number": -1,
+                  "selected": false,
+                  "url": "https://c1.rrcdnbf3.com/video/zhuawawa/HD/index.m3u8"
+                }
+              ],
+              "flag": "天天线路④☘️",
+              "position": -1,
+              "show": "天天线路④☘️"
+            },
+            {
+              "activated": false,
+              "episodes": [
+                {
+                  "activated": false,
+                  "desc": "",
+                  "index": 0,
+                  "name": "高清",
+                  "number": -1,
+                  "selected": false,
+                  "url": "https://v.cdnlz12.com/20240927/17155_7885825e/index.m3u8"
+                }
+              ],
+              "flag": "天天线路③♋",
+              "position": -1,
+              "show": "天天线路③♋"
+            },
+            {
+              "activated": false,
+              "episodes": [
+                {
+                  "activated": false,
+                  "desc": "",
+                  "index": 0,
+                  "name": "预告",
+                  "number": -1,
+                  "selected": false,
+                  "url": "https://v.youku.com/v_show/id_XNjQxMjQ4Mjg5Mg.html"
+                }
+              ],
+              "flag": "优酷",
+              "position": -1,
+              "show": "优酷"
+            }
+          ],
+          "vod_id": "54879",
+          "vod_name": "抓娃娃",
+          "vod_pic": "http://m.ykimg.com/050E0000667CFA2F13EB660F98C159A0",
+          "vod_play_from": "天天线路①☝$$$天天线路②☝$$$天天线路④☘️$$$天天线路③♋$$$优酷",
+          "vod_play_url": "高清$https://vip.ffzy-video.com/20240926/3057_c1502ae5/index.m3u8$$$1080P$NBY-XMYAES62bac3089ee38d7fd4a3da9842bd4ef4d1f526f9d98c5eb06d15d67d0bbaf35497ff3302e65338ee09ec3a7497671d3d|84f621bd4bfac2f2072ee495d829a1c8$$$高清$https://c1.rrcdnbf3.com/video/zhuawawa/HD/index.m3u8$$$高清$https://v.cdnlz12.com/20240927/17155_7885825e/index.m3u8$$$预告$https://v.youku.com/v_show/id_XNjQxMjQ4Mjg5Mg.html",
+          "vod_remarks": "01:03:35",
+          "vod_year": "2024"
+        }
+
+    ]
+}

@@ -1,0 +1,440 @@
+{
+    "page": 1,
+    "pagecount": 2,
+    "limit": 72,
+    "total": 144,
+    "list": [
+        {
+            "vod_id": "/index.php/vod/detail/id/8130.html",
+            "vod_name": "苍山",
+            "vod_pic": "https://viptulz.com/upload/vod/20250219-1/b84ce97ca5e50022bfe0a7b1405999cd.jpg",
+            "vod_remarks": "更新到最新剧集104集"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8131.html",
+            "vod_name": "黑木城盗金案黑木城盗金案",
+            "vod_pic": "https://img.ffzy888.com/upload/vod/20250402-1/7b3ac42f3daed41ae3c3170a98d2b252.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8129.html",
+            "vod_name": "我的世界大电影",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250406-1/10c948a3c1a9716d404519314364e925.jpg",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8128.html",
+            "vod_name": "尖峰对决",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250406-1/f2627d6b585ed4f04994537416d235d9.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8118.html",
+            "vod_name": "误杀3",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250102-1/acc52ddf8e66a5165ba9097dfe3f0fb3.jpg",
+            "vod_remarks": "4K HQ"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8123.html",
+            "vod_name": "破·地狱",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250405-1/0fae79beb8dfaf91e0f72ba02ff6cc5e.jpg",
+            "vod_remarks": "4K EDR+HQ"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8127.html",
+            "vod_name": "致命蜈蚣",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250325-1/b2430478705689727e7936fa61a6d3c4.jpg",
+            "vod_remarks": "4K 60FPS"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8124.html",
+            "vod_name": "制暴：无限杀机",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250403-1/1a96e860e56d699eea9c9dbf50baedf2.jpg",
+            "vod_remarks": "HD高码"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8120.html",
+            "vod_name": "深夜书店4",
+            "vod_pic": "https://img.ffzy888.com/upload/vod/20250404-1/559b62c0bc8455d441b4649d5d404bde.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8119.html",
+            "vod_name": "观山太保",
+            "vod_pic": "https://img.ffzy888.com/upload/vod/20250404-1/4bba8cacfe5b384cfee05a1f2d48b06d.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8115.html",
+            "vod_name": "黑袋行动",
+            "vod_pic": "https://img.ffzy888.com/upload/vod/20250401-1/88f8b8d777c22a6d6335323eabe14813.jpg",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/7926.html",
+            "vod_name": "刺猬索尼克3",
+            "vod_pic": "https://hhmage.com/cover/c0860b41c371f148d86287af8a1450ac.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8110.html",
+            "vod_name": "劫车王",
+            "vod_pic": "https://images.weserv.nl/?url=https://img9.doubanio.com/view/photo/s_ratio_poster/public/p2919800164.webp",
+            "vod_remarks": "4K高码"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8108.html",
+            "vod_name": "亚历山大和他最糟糕的旅程",
+            "vod_pic": "https://hhmage.com/cover/73cc822792799059a241eb9b9c76c5dd.jpg",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8107.html",
+            "vod_name": "表里不一",
+            "vod_pic": "https://img.ffzy888.com/upload/vod/20250320-1/96716f942a89765eee2f33a3df46d082.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8106.html",
+            "vod_name": "生命清单",
+            "vod_pic": "https://hhmage.com/cover/30f99dda1b0aebd765402baf5695252f.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8104.html",
+            "vod_name": "荷兰镇",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250328-1/11109c15b1fedd87be9614139d6ac010.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8103.html",
+            "vod_name": "焚城",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20241104-1/34f1fd2fa3d0ae9d795f1db0986aebba.jpg",
+            "vod_remarks": "4K EDR"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8100.html",
+            "vod_name": "编号17",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250313-1/b1b348364f873db39fea29fdb97b9526.jpg",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8097.html",
+            "vod_name": "二龙湖水怪",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250327-1/faae4b96d44d3dc265769f0f34720bde.jpg",
+            "vod_remarks": "4K高码"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8096.html",
+            "vod_name": "诡才之道",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250327-1/6ccd53479627ac573caf364432fe7bc8.jpg",
+            "vod_remarks": "HD高清"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8095.html",
+            "vod_name": "密室逃生2025",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250326-1/b23c33411ca277872bf4f858ac98dbed.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8093.html",
+            "vod_name": "小西伯利亚",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250322-1/207930f2858d6361cef095ea4f914741.jpg",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8092.html",
+            "vod_name": "闺女特烦恼",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250325-1/293db9e2f3e17761498ed445792b6ada.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8091.html",
+            "vod_name": "白云深处",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250323-1/88bfb27694829683c84694ca51f52870.jpg",
+            "vod_remarks": "4K高码"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8090.html",
+            "vod_name": "来自谁的启示",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250321-1/ec04d702f28e5a553326b72492c942db.jpg",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8089.html",
+            "vod_name": "最后的呼吸",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250318-1/ce66665681f07eecd06b9f0b89bcc405.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8088.html",
+            "vod_name": "猎虎",
+            "vod_pic": "https://hhmage.com/cover/76012521dc7bf2e55ffc3716dae11c29.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8087.html",
+            "vod_name": "西游降魔篇之快活城",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250322-1/7caf9cb32239bb24809064be415a41bd.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8085.html",
+            "vod_name": "大画王",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250321-1/504a5cfd4b87eeb9bab03d860801ea0b.jpg",
+            "vod_remarks": "4K高码"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8084.html",
+            "vod_name": "恶行之外",
+            "vod_pic": "https://hhmage.com/cover/0504b3f1ca5994854e8718b2090ab098.jpg",
+            "vod_remarks": "4K双语"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8079.html",
+            "vod_name": "边境奇袭",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250303-1/a2ddf4046b0760d6947bba461452e4a6.jpg",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8078.html",
+            "vod_name": "恶兽",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250318-1/cc5452f04fa034cdc71afe385f53d0a4.jpg",
+            "vod_remarks": "4K杜比"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8077.html",
+            "vod_name": "飞速追杀",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250303-1/77378b793b92c9a6e0652d4948d49219.jpg",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8072.html",
+            "vod_name": "奇怪的记忆",
+            "vod_pic": "https://img.picgo.net/2025/03/15/resizem_lfitlimit_1h_108016251c1da90e6ce6.webp",
+            "vod_remarks": "4K高码"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8069.html",
+            "vod_name": "超级望望",
+            "vod_pic": "https://hhmage.com/cover/d476cb2a5efe249c71456260907cc535.jpg",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8054.html",
+            "vod_name": "美国队长4",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250228-1/90383eca57166961044c8c1c101deadc.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8070.html",
+            "vod_name": "临界点2025",
+            "vod_pic": "https://images.weserv.nl/?url=https://img2.doubanio.com/view/photo/s_ratio_poster/public/p2917407561.webp",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8068.html",
+            "vod_name": "电幻国度",
+            "vod_pic": "https://images.weserv.nl/?url=https://img1.doubanio.com/view/photo/s_ratio_poster/public/p2918876479.webp",
+            "vod_remarks": "4K 杜比"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8067.html",
+            "vod_name": "老狗2025",
+            "vod_pic": "https://img.ffzy888.com/upload/vod/20250314-1/134cbb478a095e9472d7618c42b66b56.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8066.html",
+            "vod_name": "控制狂",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250314-1/e2ffb61d069323f1a07684e7bc69a204.jpg",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8065.html",
+            "vod_name": "赤血营救",
+            "vod_pic": "https://images.weserv.nl/?url=https://img3.doubanio.com/view/photo/s_ratio_poster/public/p2919337203.webp",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8064.html",
+            "vod_name": "破碎2025",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250313-1/7895173cc6046e7d73cf53c4527d828d.jpg",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8063.html",
+            "vod_name": "苍月",
+            "vod_pic": "https://images.weserv.nl/?url=https://img3.doubanio.com/view/photo/s_ratio_poster/public/p2919056782.webp",
+            "vod_remarks": "4K高码"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8059.html",
+            "vod_name": "插翅难飞2025",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250216-1/9b794ad07ee44a355f8746fdbff5ad40.jpg",
+            "vod_remarks": "4K SDR"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8057.html",
+            "vod_name": "虎口夺金",
+            "vod_pic": "http://k.sinaimg.cn/n/sinakd20250308ac/326/w406h720/20250308/7064-c578402e33dcf017b01cde1e575b6f0c.jpg/w700d1q75cms.jpg",
+            "vod_remarks": "4K HDR"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8056.html",
+            "vod_name": "九州千秋令",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250307-1/42c1030bb6defbd505afa7cc13344ec5.webp",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8052.html",
+            "vod_name": "大漠孤侠",
+            "vod_pic": "https://suboimage.com/cover/8476a4fa102134e03dd7178cc9b71a10.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8050.html",
+            "vod_name": "凤姐",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250303-1/f52483963d4b73024fadee022658c740.jpg",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8047.html",
+            "vod_name": "深山狙击",
+            "vod_pic": "https://s21.ax1x.com/2025/03/03/pEGrf2R.jpg",
+            "vod_remarks": "4K高码"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8027.html",
+            "vod_name": "沼泽之地 The Bayou",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250223-1/f6f90e4e57039e6840a8761976cb4e7b.jpg",
+            "vod_remarks": "HD双语"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8030.html",
+            "vod_name": "展昭·探案",
+            "vod_pic": "https://hhmage.com/cover/98cdbd3e76d4a09ffecba00d56a1801b.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8046.html",
+            "vod_name": "海绵宝宝：拯救比奇堡",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250227-1/1eb92f5cf05f89945a5ccf1edb7d9f24.jpg",
+            "vod_remarks": "4K双语"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8045.html",
+            "vod_name": "杰瑟普湖",
+            "vod_pic": "https://hhmage.com/cover/e60624d4c57e4c744eeabd54648d21c2.jpg",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8044.html",
+            "vod_name": "瀚海神龙",
+            "vod_pic": "https://hhmage.com/cover/35fd6604f614e6e082788d4c17e1bc73.jpg",
+            "vod_remarks": "HD国语"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8042.html",
+            "vod_name": "蜡笔小新：我们的恐龙日记",
+            "vod_pic": "https://hhmage.com/cover/8e23c74a0b2781b7d47744d0ca013913.jpg",
+            "vod_remarks": "HD双语"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8040.html",
+            "vod_name": "异形兽",
+            "vod_pic": "https://images.weserv.nl/?url=https://img3.doubanio.com/view/photo/s_ratio_poster/public/p2918253532.webp",
+            "vod_remarks": "4K HDR"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8039.html",
+            "vod_name": "无玷之城",
+            "vod_pic": "https://p0.pipi.cn/mediaplus/friday_image_fe/0fa334527f014d19bf93b60d6ff5be380b307.jpg?imageView2/1/w/464/h/644",
+            "vod_remarks": "4K HDR"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8038.html",
+            "vod_name": "人生滑下坡",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250228-1/2e444151b8cdbf72cf41203eb5683d76.jpg",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8036.html",
+            "vod_name": "生死排爆2025",
+            "vod_pic": "https://hhmage.com/cover/eb67b990e0f77ca7ce23542656bc886b.jpg",
+            "vod_remarks": "4K高码"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8034.html",
+            "vod_name": "无间猎冰",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250201-1/f611a157eea9f63da42c93ca21cb2b5a.webp",
+            "vod_remarks": "4K EDR"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8033.html",
+            "vod_name": "前任杀神",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250225-1/9c860fa41322f7a3270f777b89a2b534.jpg",
+            "vod_remarks": "HD双语"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8029.html",
+            "vod_name": "神探狗狗",
+            "vod_pic": "https://images.weserv.nl/?url=https://img3.doubanio.com/view/photo/s_ratio_poster/public/p2917206887.webp",
+            "vod_remarks": "4K双语"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8021.html",
+            "vod_name": "奇门机关卷",
+            "vod_pic": "https://img.bfzypic.com/upload/vod/20250223-1/d438b372969af9adb8b4a6c7097181f3.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8028.html",
+            "vod_name": "哈尔滨2024",
+            "vod_pic": "https://hhmage.com/cover/e413eed02cd86ee0416424bad99da0aa.jpg",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8025.html",
+            "vod_name": "天马星空",
+            "vod_pic": "https://hhmage.com/cover/1050091d8e3d071c50ec4d6254f01d35.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8024.html",
+            "vod_name": "亚刻奥特曼大电影：超次元大决战！光与暗的亚刻",
+            "vod_pic": "https://hhmage.com/cover/4f19db24df92ac01fb9e47786a2af831.jpg",
+            "vod_remarks": "4K国语"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8023.html",
+            "vod_name": "不想和你有遗憾",
+            "vod_pic": "https://hhmage.com/cover/31684f760d836dee4d91cd5ae0a58c51.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8022.html",
+            "vod_name": "窗前明月，咣！",
+            "vod_pic": "https://img.ffzy888.com/upload/vod/20250221-1/b05d985808c7949d6636fa36fc127a08.jpg",
+            "vod_remarks": "4K"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8019.html",
+            "vod_name": "全世界最美的女孩",
+            "vod_pic": "https://hhmage.com/cover/60fa96ec90e8097cf14c1b66f01df5b9.jpg",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/8017.html",
+            "vod_name": "大力水手",
+            "vod_pic": "https://hhmage.com/cover/d8ea429a6803a37acbfaae979080d442.jpg",
+            "vod_remarks": "HD中字"
+        },
+        {
+            "vod_id": "/index.php/vod/detail/id/1159.html",
+            "vod_name": "第三个嫌疑人",
+            "vod_pic": "https://pic1.imgyzzy.com/upload/vod/2024-03-24/17112435871.jpg",
+            "vod_remarks": "4K"
+        }
+    ]
+}
