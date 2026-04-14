@@ -1,43 +1,68 @@
 import 'package:flutter/foundation.dart';
-import '../core/spider_manager.dart';
+import 'package:dio/dio.dart';
+import '../core/nodejs_engine.dart';
+import '../models/category_model.dart';
 import '../models/video_model.dart';
 
-class HomeViewModel extends ChangeNotifier {
-  List<VideoModel> videoList = [];
-  bool loading = false;
-  String? error;
+class HomeViewModel with ChangeNotifier {
+  bool _isLoading = true;
+  bool get isLoading => _isLoading;
 
-  // 加载首页数据（方法名更新为视图使用的loadData）
+  List<CategoryModel> _categories = [];
+  List<CategoryModel> get categories => _categories;
+
+  List<VideoModel> _videos = [];
+  List<VideoModel> get videos => _videos;
+
+  int _currentIndex = 0;
+  int get currentIndex => _currentIndex;
+
   Future<void> loadData() async {
-    if (!SpiderManager.instance.hasSource) {
-      error = "暂无可用数据源";
-      notifyListeners();
-      return;
-    }
-
-    _setLoading(true);
-    error = null;
+    _isLoading = true;
+    notifyListeners();
 
     try {
-      videoList = await SpiderManager.instance.getHomeContent();
-      if (videoList.isEmpty) {
-        error = "暂无视频数据";
+      final engine = NodeJsEngine.instance;
+      final dio = engine.dioClient;
+      
+      // 请求首页分类接口
+      final catRes = await dio.get('/category');
+      _categories = (catRes.data as List)
+          .map((e) => CategoryModel.fromJson(e))
+          .toList();
+      
+      // 默认加载第一个分类的视频
+      if(_categories.isNotEmpty) {
+        await loadCategoryVideos(0);
       }
-    } catch (e) {
-      error = "数据加载失败：${e.toString()}";
-      debugPrint("首页数据加载失败: $e");
+    } catch(e) {
+      debugPrint('Load home data error: $e');
     } finally {
-      _setLoading(false);
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
-  // 刷新数据
-  Future<void> refresh() async {
-    await loadData();
-  }
-
-  void _setLoading(bool value) {
-    loading = value;
+  Future<void> loadCategoryVideos(int index) async {
+    _isLoading = true;
+    _currentIndex = index;
     notifyListeners();
+
+    try {
+      final engine = NodeJsEngine.instance;
+      final dio = engine.dioClient;
+      final cateId = _categories[index].id;
+      
+      // 请求分类下的视频列表
+      final res = await dio.get('/list?cate=$cateId');
+      _videos = (res.data as List)
+          .map((e) => VideoModel.fromJson(e))
+          .toList();
+    } catch(e) {
+      debugPrint('Load category videos error: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 }
