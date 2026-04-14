@@ -2,6 +2,11 @@ import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 
 class NodeJsEngine {
+  // 单例实例，兼容旧代码的.instance调用
+  static final NodeJsEngine _instance = NodeJsEngine._internal();
+  static NodeJsEngine get instance => _instance;
+  NodeJsEngine._internal();
+
   // Node.js http服务的端口，Dart层通过这个端口请求服务
   static int? nodeServerPort;
 
@@ -9,7 +14,7 @@ class NodeJsEngine {
   static Function(String)? onLog;
 
   // 初始化Node.js引擎
-  static Future<void> init() async {
+  Future<void> ensureInitialized() async {
     // 注册MethodChannel，监听原生层的消息
     const channel = MethodChannel('nodejs_channel');
     channel.setMethodCallHandler(_handleNativeCall);
@@ -38,7 +43,7 @@ class NodeJsEngine {
   }
 
   // 获取Dio客户端，自动配置baseUrl
-  static Dio get dio {
+  Dio get dio {
     if(nodeServerPort == null) {
       throw Exception('Node.js engine not initialized');
     }
@@ -50,7 +55,7 @@ class NodeJsEngine {
   }
 
   // 等待端口就绪
-  static Future<void> waitForReady() async {
+  Future<void> waitForReady() async {
     while (nodeServerPort == null) {
       await Future.delayed(const Duration(milliseconds: 100));
     }
