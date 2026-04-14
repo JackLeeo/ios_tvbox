@@ -1,55 +1,58 @@
-import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 
 class NodeJsEngine {
-  static final NodeJsEngine instance = NodeJsEngine._internal();
-  NodeJsEngine._internal();
-
-  static const MethodChannel _channel = MethodChannel('com.tvbox.nodejs');
-  static bool _isInitialized = false;
-
   // Node.js http服务的端口，Dart层通过这个端口请求服务
-  int? nodeServerPort;
+  static int? nodeServerPort;
 
   // 日志回调，外部可以注册这个回调来接收Node.js的日志
   static Function(String)? onLog;
 
-  Future<void> ensureInitialized() async {
-    if (!_isInitialized) {
-      // 注册MethodChannel的消息监听
-      _channel.setMethodCallHandler(_handleNativeCall);
-      // 启动Node.js引擎
-      await _channel.invokeMethod('startEngine');
-      _isInitialized = true;
-    }
-    // 等待端口准备就绪
-    while(nodeServerPort == null) {
+  // 初始化Node.js引擎
+  static Future<void> init() async {
+    // 注册MethodChannel，监听原生层的消息
+    const channel = MethodChannel('nodejs_channel');
+    channel.setMethodCallHandler(_handleNativeCall);
+
+    // 启动Node.js引擎
+    await MethodChannel('nodejs_channel').invokeMethod('startNodeEngine');
+
+    // 等待端口就绪
+    while (nodeServerPort == null) {
       await Future.delayed(const Duration(milliseconds: 100));
     }
   }
 
+  // 处理原生层的消息
   static Future<dynamic> _handleNativeCall(MethodCall call) async {
-    if (call.method == 'onLog') {
-      final log = call.arguments as String;
-      onLog?.call(log);
-    } else if(call.method == 'onNodeServerReady') {
+    if(call.method == 'onNodeServerReady') {
       // Node.js的http服务启动了，保存端口
       nodeServerPort = call.arguments as int;
-    } else if(call.method == 'onNodeReady') {
-      // Node.js层准备就绪
-      print('Node.js engine ready');
+    } else if(call.method == 'onNodeLog') {
+      // Node.js的日志，转发给外部的回调
+      final log = call.arguments as String;
+      if(onLog != null) {
+        onLog!(log);
+      }
     }
-    return null;
   }
 
-  // 获取请求Node.js服务的Dio实例，自动配置baseUrl
-  Dio get dioClient {
+  // 获取Dio客户端，自动配置baseUrl
+  static Dio get dio {
     if(nodeServerPort == null) {
-      throw Exception('Node.js server not ready yet');
+      throw Exception('Node.js engine not initialized');
     }
-    final dio = Dio();
-    dio.options.baseUrl = 'http://127.0.0.1:\$nodeServerPort';
-    return dio;
+    return Dio(BaseOptions(
+      baseUrl: 'http://127.0.0.1:$nodeServerPort',
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 30),
+    ));
+  }
+
+  // 等待端口就绪
+  static Future<void> waitForReady() async {
+    while (nodeServerPort == null) {
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
   }
 }
