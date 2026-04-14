@@ -54,6 +54,9 @@ class NodeJsEngine {
     ));
   }
 
+  // 兼容旧代码的dioClient调用
+  Dio get dioClient => dio;
+
   // 等待端口就绪
   Future<void> waitForReady() async {
     while (nodeServerPort == null) {
