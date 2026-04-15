@@ -280,7 +280,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tvbox-Flutter-TrollStore
-          path: ./ios/Build/tvbox-Flutter-TrollStore.ipa
+          path: ./Build/tvbox-Flutter-TrollStore.ipa
           retention-days: 30
 
       - name: Upload Build Logs
