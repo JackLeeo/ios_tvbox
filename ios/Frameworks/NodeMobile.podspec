@@ -6,6 +6,6 @@ Pod::Spec.new do |s|
   s.license = { :type => 'MIT' }
   s.author = { 'JackLeeo' => 'your@email.com' }
   s.platform = :ios, '13.0'
-  s.vendored_frameworks = 'NodeMobile.framework'
+  s.vendored_frameworks = 'NodeMobile.xcframework'
   s.source = { :path => '.' }
 end
