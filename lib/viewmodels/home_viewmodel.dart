@@ -3,27 +3,21 @@ import 'package:dio/dio.dart';
 import '../core/nodejs_engine.dart';
 import '../models/category_model.dart';
 import '../models/video_model.dart';
-
 class HomeViewModel with ChangeNotifier {
   bool _isLoading = true;
   bool get isLoading => _isLoading;
-
   List<CategoryModel> _categories = [];
   List<CategoryModel> get categories => _categories;
-
   List<VideoModel> _videos = [];
   List<VideoModel> get videos => _videos;
-
   int _currentIndex = 0;
   int get currentIndex => _currentIndex;
-
   Future<void> loadData() async {
     _isLoading = true;
     notifyListeners();
-
     try {
       final engine = NodeJsEngine.instance;
-      final dio = engine.dioClient;
+      final dio = engine.dio;
       
       // 请求首页分类接口
       final catRes = await dio.get('/category');
@@ -42,15 +36,13 @@ class HomeViewModel with ChangeNotifier {
       notifyListeners();
     }
   }
-
   Future<void> loadCategoryVideos(int index) async {
     _isLoading = true;
     _currentIndex = index;
     notifyListeners();
-
     try {
       final engine = NodeJsEngine.instance;
-      final dio = engine.dioClient;
+      final dio = engine.dio;
       final cateId = _categories[index].id;
       
       // 请求分类下的视频列表
