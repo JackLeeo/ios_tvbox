@@ -14,13 +14,18 @@ import Flutter
         switch call.method {
         case "startNodeEngine":
             let port = call.arguments as? Int ?? 0;
-            startNodeEngine(port: port, result: result);
+            // 先返回成功，告诉Dart层我们已经开始启动了
+            result(true);
+            // 把nodejs的启动放到后台线程，不要阻塞主线程
+            DispatchQueue.global().async {
+                self.startNodeEngine(port: port);
+            }
         default:
             result(FlutterMethodNotImplemented);
         }
     }
     
-    private func startNodeEngine(port: Int, result: FlutterResult) {
+    private func startNodeEngine(port: Int) {
         // 加载assets中的nodejs主文件
         let mainJsPath = Bundle.main.path(forResource: "main", ofType: "js", inDirectory: "nodejs-project/src") ?? "";
         
@@ -32,9 +37,5 @@ import Flutter
         // 转成C的argv参数
         var cArgs = args.map { strdup($0) }
         node_start(Int32(args.count), &cArgs)
-        
-        // 我们的nodejs代码会自己启动HTTP服务器，Dart层直接通过localhost访问即可
-        // 不需要任何原生层的消息传递，所有通信都走HTTP
-        result(true);
     }
 }
