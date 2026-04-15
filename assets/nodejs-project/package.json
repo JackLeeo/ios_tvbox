@@ -1,0 +1,16 @@
+{
+    "name": "cat_vod_nodejs_fastify",
+    "version": "1.0.0",
+    "description": "CatVodOpen nodejs config api server demo.",
+    "scripts": {
+        "product-install": "npm install --omit=dev --no-bin-links",
+        "build": "npm i && node esbuild.js && npm run product-install"
+    },
+    "author": "",
+    "dependencies": {
+        "axios": "^1.6.7"
+    },
+    "devDependencies": {
+        "esbuild": "^0.25.2"
+    }
+}
