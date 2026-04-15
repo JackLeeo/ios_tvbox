@@ -1,33 +1,49 @@
 import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
-
+import 'dart:io';
 class NodeJsEngine {
   // 单例实例，兼容旧代码的.instance调用
   static final NodeJsEngine _instance = NodeJsEngine._internal();
   static NodeJsEngine get instance => _instance;
   NodeJsEngine._internal();
-
   // Node.js http服务的端口，Dart层通过这个端口请求服务
   static int? nodeServerPort;
-
+  // Dart端的HTTP服务端口，用来接收Node.js的端口通知
+  static int? dartServerPort;
   // 日志回调，外部可以注册这个回调来接收Node.js的日志
   static Function(String)? onLog;
-
   // 初始化Node.js引擎
   Future<void> ensureInitialized() async {
     // 注册MethodChannel，监听原生层的消息
     const channel = MethodChannel('nodejs_channel');
     channel.setMethodCallHandler(_handleNativeCall);
-
-    // 启动Node.js引擎
-    await MethodChannel('nodejs_channel').invokeMethod('startNodeEngine');
-
+    
+    // 启动Dart端的HTTP服务，用来接收Node.js的端口通知
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    dartServerPort = server.port;
+    // 处理请求
+    server.listen((HttpRequest request) async {
+      if (request.uri.path == '/onCatPawOpenPort') {
+        // 收到Node.js的端口通知
+        final port = request.uri.queryParameters['port'];
+        if (port != null) {
+          nodeServerPort = int.tryParse(port);
+        }
+        request.response.statusCode = HttpStatus.ok;
+        await request.response.close();
+      } else {
+        request.response.statusCode = HttpStatus.notFound;
+        await request.response.close();
+      }
+    });
+    
+    // 启动Node.js引擎，把Dart端的服务端口传过去
+    await MethodChannel('nodejs_channel').invokeMethod('startNodeEngine', dartServerPort);
     // 等待端口就绪
     while (nodeServerPort == null) {
       await Future.delayed(const Duration(milliseconds: 100));
     }
   }
-
   // 处理原生层的消息
   static Future<dynamic> _handleNativeCall(MethodCall call) async {
     if(call.method == 'onNodeServerReady') {
@@ -41,7 +57,6 @@ class NodeJsEngine {
       }
     }
   }
-
   // 获取Dio客户端，自动配置baseUrl
   Dio get dio {
     if(nodeServerPort == null) {
@@ -53,10 +68,6 @@ class NodeJsEngine {
       receiveTimeout: const Duration(seconds: 30),
     ));
   }
-
-  // 兼容旧代码的dioClient调用
-  Dio get dioClient => dio;
-
   // 等待端口就绪
   Future<void> waitForReady() async {
     while (nodeServerPort == null) {
