@@ -1,14 +1,16 @@
 import Foundation
 import Flutter
-// 无需 import NodeMobile，桥接头文件已暴露
+
 @objc class NodeJSBridge: NSObject, FlutterPlugin {
     private var channel: FlutterMethodChannel?
+    
     public static func register(with registrar: FlutterPluginRegistrar) {
         let instance = NodeJSBridge();
         instance.channel = FlutterMethodChannel(name: "nodejs_channel", binaryMessenger: registrar.messenger());
         registrar.addMethodCallDelegate(instance, channel: instance.channel!);
         instance.setupNodeListener();
     }
+    
     func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
         case "startNodeEngine":
@@ -18,11 +20,21 @@ import Flutter
             result(FlutterMethodNotImplemented);
         }
     }
+    
     private func startNodeEngine(port: Int, result: FlutterResult) {
-        // 加载assets中的nodejs主文件，来自tvbox-source的nodejs-project
+        // 加载assets中的nodejs主文件
         let mainJsPath = Bundle.main.path(forResource: "main", ofType: "js", inDirectory: "nodejs-project/src") ?? "";
-        NodeMobile.startEngine(withArguments: [mainJsPath]);
-        // 启动后，给Node.js发送nativeServerPort消息，把Dart端的HTTP服务端口传过去
+        
+        // 调用官方的nodeStart函数启动nodejs引擎
+        var args = [
+            "node",
+            mainJsPath
+        ]
+        // 转成C的argv参数
+        var cArgs = args.map { strdup($0) }
+        nodeStart(Int32(args.count), &cArgs)
+        
+        // 给Node.js发送nativeServerPort消息
         let portMsg: [String: Any] = [
             "action": "nativeServerPort",
             "port": port
@@ -32,11 +44,14 @@ import Flutter
             result(true);
             return;
         }
-        NodeMobile.channel?.send(jsonString);
+        // 调用官方的发送消息函数
+        nodejs_channel_send(jsonString);
         result(true);
     }
+    
     private func setupNodeListener() {
-        NodeMobile.channel?.setEventListener { [weak self] message in
+        // 调用官方的设置监听函数，接收Node.js的消息
+        nodejs_channel_set_listener { [weak self] message in
             guard let self = self, let msg = message,
                   let data = msg.data(using: .utf8),
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
