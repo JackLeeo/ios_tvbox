@@ -14,6 +14,7 @@ class NodeJsEngine {
   static Function(String)? onLog;
   // 初始化Node.js引擎
   Future<void> ensureInitialized() async {
+    if(nodeServerPort != null) return;
     // 注册MethodChannel，监听原生层的消息
     const channel = MethodChannel('nodejs_channel');
     channel.setMethodCallHandler(_handleNativeCall);
@@ -67,6 +68,17 @@ class NodeJsEngine {
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 30),
     ));
+  }
+  // 执行Node.js脚本，兼容SpiderManager的调用
+  Future<Map<String, dynamic>> executeScript(String api, String ext, String method, List<dynamic> args) async {
+    await ensureInitialized();
+    final response = await dio.post('/execute', data: {
+      'api': api,
+      'ext': ext,
+      'method': method,
+      'args': args,
+    });
+    return Map<String, dynamic>.from(response.data);
   }
   // 等待端口就绪
   Future<void> waitForReady() async {
