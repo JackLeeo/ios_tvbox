@@ -1,8 +1,6 @@
 #ifndef Runner_Bridging_Header_h
 #define Runner_Bridging_Header_h
 #import "GeneratedPluginRegistrant.h"
-// 声明官方nodejs-mobile的C API函数
-int nodeStart(int argc, char *argv[]);
-void nodejs_channel_send(NSString *message);
-void nodejs_channel_set_listener(void (^listener)(NSString *message));
+// 官方nodejs-mobile唯一有的C函数，工作流里也验证过这个符号存在
+int node_start(int argc, char *argv[]);
 #endif
