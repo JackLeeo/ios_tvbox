@@ -201,6 +201,18 @@ jobs:
             fi
             
             echo "APP_PATH: $APP_PATH"
+          # 复制Node.js项目到.app包
+          echo "=== 复制Node.js项目到.app包 ==="
+          cp -r ../assets/nodejs-project "$APP_PATH/"
+
+          # 验证Node.js脚本是否复制成功
+          SCRIPT_PATH="$APP_PATH/nodejs-project/dist/main.js"
+          if [ -f "$SCRIPT_PATH" ]; then
+            echo "✅ Node.js脚本已打包到.app包"
+          else
+            echo "⚠️ Node.js脚本未找到，检查路径: $SCRIPT_PATH"
+            find "$APP_PATH" -name "main.js" -type f
+          fi
             
             # 验证.app包结构
             echo "=== 验证.app包结构 ==="
