@@ -24,7 +24,7 @@ import Flutter
     }
     
     private func startNodeEngineBackground(dartPort: Int) {
-        guard let mainJsPath = Bundle.main.path(forResource: "main", ofType: "js", inDirectory: "nodejs-project/src") else {
+        guard let mainJsPath = Bundle.main.path(forResource: "main", ofType: "js", inDirectory: "nodejs-project/dist") else {
             return;
         }
         setenv("DART_SERVER_PORT", String(dartPort), 1);
