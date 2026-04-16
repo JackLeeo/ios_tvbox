@@ -1,13 +1,18 @@
 const http = require('http');
 const url = require('url');
-const path = require('path');
-const fs = require('fs');
 
-const server = http.createServer((req, res) => {
+// 引入tvbox-source的解析函数
+const { parse } = require('./parse');
+const { getClass } = require('./class');
+const { getDetail } = require('./detail');
+const { getPlayUrl } = require('./player');
+
+const server = http.createServer(async (req, res) => {
     const parsedUrl = url.parse(req.url, true);
     const pathname = parsedUrl.pathname;
     const query = parsedUrl.query;
 
+    // 跨域配置
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -18,61 +23,28 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    if (pathname === '/category') {
-        try {
-            const categoryPath = path.join(__dirname, '../category.json');
-            const data = fs.readFileSync(categoryPath, 'utf8');
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(data);
-        } catch (e) {
-            res.writeHead(500);
-            res.end(JSON.stringify({ error: e.message }));
+    try {
+        let result;
+        // 对应tvbox-source的接口逻辑
+        if (pathname === '/category') {
+            result = await getClass();
+        } else if (pathname === '/list') {
+            result = await parse(query);
+        } else if (pathname === '/detail') {
+            result = await getDetail(query);
+        } else if (pathname === '/play') {
+            result = await getPlayUrl(query);
+        } else {
+            res.writeHead(404);
+            res.end('Not Found');
+            return;
         }
-        return;
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+    } catch (e) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: e.message }));
     }
-
-    if (pathname === '/list') {
-        try {
-            const homePath = path.join(__dirname, '../home.json');
-            const data = fs.readFileSync(homePath, 'utf8');
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(data);
-        } catch (e) {
-            res.writeHead(500);
-            res.end(JSON.stringify({ error: e.message }));
-        }
-        return;
-    }
-
-    if (pathname === '/detail') {
-        try {
-            const detailPath = path.join(__dirname, '../detail.json');
-            const data = fs.readFileSync(detailPath, 'utf8');
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(data);
-        } catch (e) {
-            res.writeHead(500);
-            res.end(JSON.stringify({ error: e.message }));
-        }
-        return;
-    }
-
-    if (pathname === '/play') {
-        try {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-                parse: query.url,
-                headers: {}
-            }));
-        } catch (e) {
-            res.writeHead(500);
-            res.end(JSON.stringify({ error: e.message }));
-        }
-        return;
-    }
-
-    res.writeHead(404);
-    res.end('Not Found');
 });
 
 server.listen(0, '127.0.0.1', () => {
