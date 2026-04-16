@@ -52,7 +52,7 @@ jobs:
           if [ -z "$FRAMEWORK_PATH" ]; then
             echo "❌ 未找到 NodeMobile.xcframework"
             exit 1
-          }
+          fi
 
           cp -r "$FRAMEWORK_PATH" $TARGET_DIR/
           rm -rf $TEMP_DIR nodejs-mobile.zip
@@ -101,7 +101,7 @@ jobs:
             else
               echo "❌ 符号缺失: $sym"
               MISSING_SYMBOLS=$((MISSING_SYMBOLS + 1))
-            end
+            fi
           done
 
           rm -f "$ALL_SYMBOLS"
